@@ -1,3 +1,5 @@
+import { APP_CONFIG } from "@/config/app";
+
 /**
  * Google-Login (OAuth) für YouTube Analytics.
  * Pro Kanal einmal „Erlauben“ klicken → wir bekommen ein Refresh-Token
@@ -31,9 +33,24 @@ export function isOAuthConfigured(env: Env = process.env): boolean {
   return Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.TOKEN_ENCRYPTION_KEY);
 }
 
-/** Rückkehr-Adresse nach dem Google-Login (muss exakt so in der Google Cloud eingetragen sein). */
-export function redirectUriFor(origin: string): string {
-  return `${origin}/api/auth/youtube/callback`;
+const CALLBACK_PATH = "/api/auth/youtube/callback";
+
+function isLocal(origin: string): boolean {
+  return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+}
+
+/**
+ * Rückkehr-Adresse nach dem Google-Login. Muss EXAKT so in der Google Cloud stehen.
+ * Online immer die feste Adresse (auch wenn das Dashboard über eine Vercel-Vorschau-
+ * Adresse geöffnet wurde), lokal die lokale Adresse.
+ */
+export function redirectUriFor(requestOrigin: string, publicUrl: string = APP_CONFIG.publicUrl): string {
+  return isLocal(requestOrigin) ? `${requestOrigin}${CALLBACK_PATH}` : `${publicUrl}${CALLBACK_PATH}`;
+}
+
+/** Läuft diese Anfrage über die feste Adresse (oder lokal)? */
+export function isCanonicalOrigin(requestOrigin: string, publicUrl: string = APP_CONFIG.publicUrl): boolean {
+  return isLocal(requestOrigin) || requestOrigin === publicUrl;
 }
 
 export function buildAuthUrl(opts: { redirectUri: string; state: string; env?: Env }): string {

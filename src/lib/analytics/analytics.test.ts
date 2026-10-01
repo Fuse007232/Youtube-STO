@@ -208,3 +208,18 @@ describe("runAnalyticsIfDue", () => {
     expect(gra.connected).toBe(false);
   });
 });
+
+describe("Rückkehr-Adresse für Google", () => {
+  it("online immer die feste Adresse", async () => {
+    const { redirectUriFor, isCanonicalOrigin } = await import("@/lib/youtube/oauth");
+    const pub = "https://youtube-sto.vercel.app";
+    expect(redirectUriFor(pub, pub)).toBe(`${pub}/api/auth/youtube/callback`);
+    expect(redirectUriFor("https://youtube-abc123-team.vercel.app", pub)).toBe(`${pub}/api/auth/youtube/callback`);
+    expect(isCanonicalOrigin("https://youtube-abc123-team.vercel.app", pub)).toBe(false);
+  });
+  it("lokal die lokale Adresse", async () => {
+    const { redirectUriFor, isCanonicalOrigin } = await import("@/lib/youtube/oauth");
+    expect(redirectUriFor("http://localhost:3123")).toBe("http://localhost:3123/api/auth/youtube/callback");
+    expect(isCanonicalOrigin("http://localhost:3123")).toBe(true);
+  });
+});

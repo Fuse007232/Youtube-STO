@@ -16,6 +16,12 @@ export const APP_CONFIG = {
   maxExtrapolationFactor: 1.5,
   /** Tageskontingent der YouTube Data API (Einheiten). */
   youtubeDailyQuota: 10_000,
+  /**
+   * Feste öffentliche Adresse des Dashboards (kein Geheimnis).
+   * Der Google-Login nutzt IMMER diese Adresse als Rückkehr-Adresse – genau so
+   * muss sie in der Google Cloud eingetragen sein.
+   */
+  publicUrl: "https://youtube-sto.vercel.app",
   /** Wie viele Einträge die Top-Shorts-Rangliste zeigt. */
   topShortsLimit: 10,
 } as const;

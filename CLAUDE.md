@@ -18,7 +18,7 @@ Privates Dashboard für die 2 YouTube-Shorts-Kanäle des Nutzers: beide Kanäle 
 - **Phase für Phase** arbeiten. Nach jeder Phase: Zusammenfassung (was gebaut, wie testen, was kommt). Nach jedem fertigen Schritt committen (verständliche Nachricht).
 - Wenn der Nutzer gebraucht wird: anhalten, Klick-für-Klick-Anleitung geben, auf Rückmeldung warten.
 - Unklar? **Fragen statt raten.**
-- Arbeits-Branch: `claude/youtube-shorts-dashboard-c6jkd9`. Vercel ist mit dem Repo verbunden und baut bei jedem Push automatisch.
+- Arbeits-Branch: `claude/youtube-shorts-dashboard-c6jkd9`. Vercel ist mit dem Repo verbunden und baut bei jedem Push automatisch. `vercel.json` legt `framework: nextjs` fest (das Vercel-Projekt wurde angelegt, als das Repo noch leer war, und stand auf „Other“). Node-Version: `engines.node = 22.x`.
 
 ## Feste Regeln
 

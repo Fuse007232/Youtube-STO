@@ -123,3 +123,24 @@ describe("Upload-Kalender", () => {
     expect(cal.days.length).toBeGreaterThan(26 * 7 - 7);
   });
 });
+
+describe("Konkurrenz-Radar", () => {
+  it("neue Shorts gegen den üblichen Endstand, ältere gegen die üblichen 24h-Aufrufe", async () => {
+    const { buildRivalRadar } = await import("./radar");
+    // Üblich: 100.000 Aufrufe insgesamt, 10.000 in 24 Std.
+    const base = Array.from({ length: 10 }, (_, i) => short(`n${i}`, 3 + i, { channelId: "R", views: 100_000, views24h: 10_000 }));
+    const rocket = short("rakete", 0.5, { channelId: "R", views: 400_000, views24h: 400_000 });
+    const young = short("normal-neu", 0.5, { channelId: "R", views: 60_000, views24h: 60_000 });
+    const comeback = short("comeback", 20, { channelId: "R", views: 500_000, views24h: 30_000 });
+    const small = short("klein", 1, { channelId: "S", views: 4_000, views24h: 4_000 });
+    const smallBase = Array.from({ length: 5 }, (_, i) => short(`s${i}`, 3 + i, { channelId: "S", views: 100, views24h: 10 }));
+    const r = buildRivalRadar([...base, rocket, young, comeback, small, ...smallBase], NOW);
+    expect(r.map((x) => [x.id, x.kind])).toEqual([
+      ["rakete", "new"],
+      ["comeback", "breakout"],
+    ]);
+    expect(r[0].factor).toBeCloseTo(4);
+    expect(r[1].factor).toBeCloseTo(3);
+    expect(r[0].perHour).toBeCloseTo(400_000 / 12);
+  });
+});

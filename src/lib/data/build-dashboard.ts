@@ -12,6 +12,7 @@ import { topShortsPerChannel } from "@/lib/metrics/ranking";
 import { channelShortStats } from "@/lib/metrics/standings";
 import { buildUploadCalendar } from "@/lib/metrics/calendar";
 import { buildCommentPulse } from "@/lib/metrics/comments";
+import { buildRivalRadar } from "@/lib/metrics/radar";
 import type { CommentGainRow } from "@/lib/db/store";
 import { analyzeCatalog } from "@/lib/metrics/catalog";
 import { analyzeShortLength } from "@/lib/metrics/short-length";
@@ -175,6 +176,7 @@ export function buildDashboard(input: RawDashboardInput): DashboardData {
     standings: input.rivals ? buildStandings(channels, input) : null,
     ...buildAnalysis(input),
     comments: input.comments ? buildCommentPulse(input.comments, input.shorts) : null,
+    rivalRadar: input.rivals && input.hasHistory ? buildRivalRadar(input.rivalShorts ?? [], input.now, historyHours) : null,
   };
 }
 

@@ -347,6 +347,8 @@ export interface DashboardData {
   calendar: UploadCalendar[] | null;
   /** Kommentar-Puls der eigenen Kanäle. null = Quelle ohne Kommentare. */
   comments: CommentPulse | null;
+  /** Konkurrenz-Radar. null = keine Konkurrenz-Daten (keine Konkurrenten bzw. Quelle ohne Verlauf). */
+  rivalRadar: RadarItem[] | null;
 }
 
 /** Jede Datenquelle muss diese eine Funktion anbieten. */
@@ -378,6 +380,23 @@ export interface CommentItem {
   publishedAt: number;
   /** Titel des Shorts (für Listen; im Dashboard ergänzt). */
   videoTitle?: string;
+}
+
+/** Konkurrenz-Radar: ein Konkurrenz-Short, der gerade ungewöhnlich abgeht (Phase 7). */
+export interface RadarItem {
+  id: string;
+  channelId: string;
+  title: string;
+  thumbnailUrl: string | null;
+  publishedAt: number;
+  views: number;
+  views24h: number;
+  /** Wie viel mal so stark wie üblich (siehe `kind`). */
+  factor: number;
+  /** new = unter 48 Std. (Gesamtaufrufe vs. üblicher Endstand), breakout = älter (24h-Aufrufe vs. üblich). */
+  kind: "new" | "breakout";
+  /** Ø Aufrufe pro Stunde (24h bzw. seit Upload). */
+  perHour: number;
 }
 
 /** Kommentar-Puls (Phase 7). */

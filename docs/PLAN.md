@@ -1,6 +1,6 @@
 # Projektplan: YouTube-Shorts-Dashboard
 
-> Stand: Phase 4 gebaut (Passwortschutz + Zeitplaner). Wartet auf Passwort in Vercel und Geheimwort im Supabase-Tresor.
+> Stand: Phase 4 fertig (Login aktiv, Zeitplaner läuft seit 01.10.2026 19:15 Uhr). Nächste Phase: 5 (OAuth + YouTube Analytics).
 > Dieses Dokument wird nach jeder Phase aktualisiert (Status-Tabelle unten).
 
 ---
@@ -28,7 +28,7 @@ YouTube hat keine Echtzeit-Schnittstelle. Deshalb holt ein Hintergrund-Job alle 
 | 1 | Grundgerüst + Dashboard mit Beispieldaten | ✅ fertig (Design abgenommen) |
 | 2 | Echte Zahlen über die YouTube Data API | ✅ fertig (Zahlen geprüft) |
 | 3 | Supabase-Datenbank, Schnappschüsse, 24h-Duell | ✅ fertig (erste Schnappschüsse am 01.10.2026 ab 18:50) |
-| 4 | Veröffentlichung auf Vercel (inkl. Passwortschutz und Zeitplaner) | ✅ gebaut, wartet auf deine 2 Einträge |
+| 4 | Veröffentlichung auf Vercel (inkl. Passwortschutz und Zeitplaner) | ✅ fertig (Login aktiv, Cron seit 01.10. 19:15) |
 | 5 | OAuth-Login + YouTube Analytics API | ⏳ offen |
 | 6 | Extras (Alarm, beste Upload-Zeit, Konkurrenz) | ⏳ offen |
 
@@ -275,6 +275,8 @@ Geschätzter Bedarf: deutlich unter 100 MB pro Jahr.
 - `cron_secret` im Supabase-Tresor anlegen → **Anleitung G**
 
 **Fertig, wenn:** Du öffnest https://youtube-sto.vercel.app, musst dich mit Passwort anmelden, in `snapshot_runs` erscheint alle 15 Min. ein Lauf mit `trigger = cron`, und nach 24 Stunden zeigt das Duell echte 24h-Gewinne.
+
+**Ergebnis:** Login funktioniert (vom Nutzer bestätigt). Von außen geprüft: `/` → Login, `/api/dashboard` und `/api/cron/snapshot` ohne Berechtigung → 401. Erster automatischer Lauf am 01.10.2026 um 19:15 Uhr (HTTP 200, 5 Einheiten). Volles 24h-Duell ab 02.10.2026 ca. 18:50 Uhr.
 
 ---
 

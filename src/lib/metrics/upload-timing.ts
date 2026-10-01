@@ -235,7 +235,14 @@ export function activityFromPoints(points: ChannelPoint[]): ActivityProfile {
 
 // ───────────── Analyse + Empfehlung ─────────────
 
-function zDiff(a: SlotStat, b: SlotStat): number {
+/** Sicherheits-Stufe aus z-Wert und Anzahl (streng, weil der Beste immer etwas Glück hat). */
+export function confidenceLevel(z: number, n: number): TimingConfidence {
+  return z >= TIMING.zClear && n >= 8 ? "deutlich" : z >= TIMING.zTrend ? "tendenz" : "unsicher";
+}
+const level = confidenceLevel;
+
+/** z-Wert für „a ist besser als b“ (log-Maßstab; ohne Streuung wird vorsichtig 0,5 angenommen). */
+export function zDiff(a: SlotStat, b: SlotStat): number {
   const se = Math.sqrt((a.se ?? 0.5) ** 2 + (b.se ?? 0.5) ** 2);
   return se > 0 ? (Math.log(a.score) - Math.log(b.score)) / se : 0;
 }
@@ -272,8 +279,6 @@ export function analyzeTiming(input: {
     const upliftPct = best.b === def.b ? 0 : (best.s.score / def.s.score - 1) * 100;
     // Wie sicher ist der Unterschied? (z-Wert im log-Maßstab; streng, weil der
     // beste von mehreren Blöcken immer ein bisschen Glück hat)
-    const level = (z: number, n: number): TimingConfidence =>
-      z >= TIMING.zClear && n >= 8 ? "deutlich" : z >= TIMING.zTrend ? "tendenz" : "unsicher";
     let confidence: TimingConfidence;
     if (best.b !== def.b) {
       confidence = level(zDiff(best.s, def.s), best.s.n);
@@ -366,37 +371,50 @@ export function analyzeTiming(input: {
   };
 }
 
-/** Komplette Boxenstrategie: je eigener Kanal + Konkurrenz zusammen. */
-export function buildUploadTiming(input: {
+export interface TimingSampleInput {
   ownChannelIds: string[];
   ownShorts: RankedShort[];
   rivalShorts: RankedShort[];
   firstDay: FirstDayRow[];
-  activity: Map<string, ActivityProfile>;
   now: number;
-}): TimingAnalysis[] {
+}
+
+/** Leistungs-Index aller Shorts: je eigener Kanal + alle Konkurrenten zusammen. */
+export function buildTimingSamples(input: TimingSampleInput): { own: Map<string, TimingSample[]>; rivals: TimingSample[] } {
   const titles = new Map([...input.ownShorts, ...input.rivalShorts].map((s) => [s.id, s.title]));
   const ownIds = new Set(input.ownChannelIds);
-  const rivalSamples = mergeSamples(
+  const rivals = mergeSamples(
     historySamples(input.rivalShorts, input.now),
     firstDaySamples(input.firstDay.filter((r) => !ownIds.has(r.channelId)), titles),
   );
-  const competition =
-    input.rivalShorts.length > 0 ? analyzeTiming({ scope: "competitors", samples: rivalSamples }) : null;
+  const own = new Map(
+    input.ownChannelIds.map((channelId) => [
+      channelId,
+      mergeSamples(
+        historySamples(input.ownShorts.filter((s) => s.channelId === channelId), input.now),
+        firstDaySamples(input.firstDay.filter((r) => r.channelId === channelId), titles),
+      ),
+    ]),
+  );
+  return { own, rivals };
+}
 
-  const own = input.ownChannelIds.map((channelId) => {
-    const shorts = input.ownShorts.filter((s) => s.channelId === channelId);
-    const samples = mergeSamples(
-      historySamples(shorts, input.now),
-      firstDaySamples(input.firstDay.filter((r) => r.channelId === channelId), titles),
-    );
-    return analyzeTiming({
+/** Komplette Boxenstrategie: je eigener Kanal + Konkurrenz zusammen. */
+export function buildUploadTiming(
+  input: TimingSampleInput & { activity: Map<string, ActivityProfile> },
+  samples = buildTimingSamples(input),
+): TimingAnalysis[] {
+  const competition =
+    input.rivalShorts.length > 0 ? analyzeTiming({ scope: "competitors", samples: samples.rivals }) : null;
+
+  const own = input.ownChannelIds.map((channelId) =>
+    analyzeTiming({
       scope: channelId,
-      samples,
-      recentShorts: shorts.filter((s) => s.publishedAt <= input.now),
+      samples: samples.own.get(channelId) ?? [],
+      recentShorts: input.ownShorts.filter((s) => s.channelId === channelId && s.publishedAt <= input.now),
       activity: input.activity.get(channelId),
       competition,
-    });
-  });
+    }),
+  );
   return competition ? [...own, competition] : own;
 }

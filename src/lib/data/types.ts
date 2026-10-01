@@ -130,7 +130,7 @@ export interface ChannelAnalytics {
   error: string | null;
   /** Neuester Tag mit Daten (YYYY-MM-DD). */
   lastDay: string | null;
-  /** Tageswerte, aufsteigend (bis zu 35 Tage). */
+  /** Tageswerte, aufsteigend (bis zu 40 Tage). */
   daily: AnalyticsDay[];
   /** Summen/Mittelwerte der letzten 28 Tage mit Daten. */
   totals28d: AnalyticsTotals | null;
@@ -166,6 +166,66 @@ export interface StandingsEntry {
   avgViewsPerShort30d: number | null;
   /** Bester Short nach Aufrufen in 24h. */
   bestShort24h: Pick<RankedShort, "id" | "title" | "views24h" | "thumbnailUrl"> | null;
+}
+
+// ───────────── Analyse-Seite (Phase 7) ─────────────
+
+/** Leistung nach Short-Länge („Renndistanz“). */
+export interface LengthBucket {
+  label: string;
+  minSec: number;
+  /** null = nach oben offen. */
+  maxSec: number | null;
+  stat: SlotStat;
+}
+
+export interface LengthAnalysis {
+  /** Kanal-ID oder "competitors". */
+  scope: string;
+  samples: number;
+  buckets: LengthBucket[];
+  /** Index des besten getesteten Bereichs (null = zu wenig Daten). */
+  best: number | null;
+  /** Index des am häufigsten genutzten Bereichs. */
+  common: number | null;
+  /** Vorteil des besten gegenüber dem häufigsten Bereich in Prozent. */
+  upliftPct: number | null;
+  confidence: TimingConfidence;
+}
+
+/** Aufrufe eines Zeitfensters nach Alter der Shorts („Reifenverschleiß“). */
+export interface CatalogWindow {
+  totalViews: number;
+  buckets: { label: string; views: number; share: number; shorts: number }[];
+  /** Anteil der Shorts, die älter als 7 Tage sind (0…1). */
+  catalogShare: number;
+}
+
+export interface CatalogAnalysis {
+  channelId: string;
+  window24h: CatalogWindow;
+  window7d: CatalogWindow;
+  /** Alte Shorts (> 30 Tage), die in 24 Std. am meisten holen. */
+  evergreens: Pick<RankedShort, "id" | "title" | "thumbnailUrl" | "views" | "views24h" | "publishedAt">[];
+}
+
+/** Ein Tag im Upload-Kalender (Berliner Datum). */
+export interface CalendarDay {
+  day: string;
+  uploads: number;
+  /** Aufrufe des Tages laut YouTube Analytics (null = keine Daten). */
+  views: number | null;
+}
+
+export interface UploadCalendar {
+  channelId: string;
+  /** Lückenlos von einem Montag bis heute. */
+  days: CalendarDay[];
+  /** Tage in Folge mit mindestens einem Upload (bis heute bzw. gestern). */
+  currentStreak: number;
+  longestStreak: number;
+  /** Neuester Tag mit Analytics-Aufrufen (YYYY-MM-DD) oder null. */
+  viewsUntil: string | null;
 }
 
 // ───────────── Boxenstrategie (beste Upload-Uhrzeit, Phase 6.2) ─────────────
@@ -279,6 +339,12 @@ export interface DashboardData {
    * zusammen, falls eingetragen). null = Quelle ohne diese Auswertung.
    */
   uploadTiming: TimingAnalysis[] | null;
+  /** Beste Short-Länge je eigener Kanal (+ „competitors“). null = Quelle ohne Shorts-Liste. */
+  shortLength: LengthAnalysis[] | null;
+  /** Langzeit-Anteil je eigenem Kanal. null = Quelle ohne Verlauf. */
+  catalog: CatalogAnalysis[] | null;
+  /** Upload-Kalender je eigenem Kanal. */
+  calendar: UploadCalendar[] | null;
 }
 
 /** Jede Datenquelle muss diese eine Funktion anbieten. */

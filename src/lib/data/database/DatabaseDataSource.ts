@@ -92,7 +92,7 @@ export class DatabaseDataSource implements DataSource {
 
     const rivals = await this.loadRivals(now);
 
-    const [analytics, alerts, timing] = await Promise.all([
+    const [analyticsData, alerts, timing] = await Promise.all([
       this.opts.analytics ? this.loadAnalytics(ids, rankings, now) : Promise.resolve(null),
       this.opts.alerts
         ? this.opts.alerts.getRecentAlerts(now - 7 * 24 * HOUR_MS, 20).catch((e) => {
@@ -116,7 +116,8 @@ export class DatabaseDataSource implements DataSource {
       })),
       shorts: rankings.filter((s) => ids.includes(s.channelId)),
       quotaUsedToday,
-      analytics,
+      analytics: analyticsData?.analytics ?? null,
+      dailyViews: analyticsData?.dailyViews,
       alerts,
       rivals: rivals?.raw,
       rivalShorts: rivals ? rankings.filter((s) => rivals.ids.has(s.channelId)) : undefined,
@@ -174,18 +175,28 @@ export class DatabaseDataSource implements DataSource {
   }
 
   /** Analytics je Kanal laden. Fehler hier legen nicht das ganze Dashboard lahm. */
-  private async loadAnalytics(ids: string[], rankings: RankedShort[], now: number): Promise<ChannelAnalytics[] | null> {
+  private async loadAnalytics(
+    ids: string[],
+    rankings: RankedShort[],
+    now: number,
+  ): Promise<{ analytics: ChannelAnalytics[]; dailyViews: Map<string, Map<string, number>> } | null> {
     const reader = this.opts.analytics!;
     try {
       const since = new Date(now - 40 * 24 * HOUR_MS).toISOString().slice(0, 10);
-      const [connections, daily, videos, breakdowns] = await Promise.all([
+      // Für den Upload-Kalender: ein halbes Jahr Tageswerte
+      const sinceCalendar = new Date(now - 190 * 24 * HOUR_MS).toISOString().slice(0, 10);
+      const [connections, allDaily, videos, breakdowns] = await Promise.all([
         reader.getConnections(),
-        reader.getAnalyticsDaily(ids, since),
+        reader.getAnalyticsDaily(ids, sinceCalendar),
         reader.getAnalyticsVideos(ids, ANALYTICS_PERIOD),
         reader.getBreakdowns(ids, ANALYTICS_PERIOD),
       ]);
       const videoInfo = new Map(rankings.map((r) => [r.id, r]));
-      return ids.map((channelId) =>
+      const daily = allDaily.filter((d) => d.day >= since);
+      const dailyViews = new Map(
+        ids.map((id) => [id, new Map(allDaily.filter((d) => d.channelId === id).map((d) => [d.day, d.views]))]),
+      );
+      const analytics = ids.map((channelId) =>
         buildChannelAnalytics({
           channelId,
           connection: connections.find((c) => c.channelId === channelId),
@@ -195,6 +206,7 @@ export class DatabaseDataSource implements DataSource {
           videoInfo,
         }),
       );
+      return { analytics, dailyViews };
     } catch (e) {
       console.error("[analytics] Lesen fehlgeschlagen:", e);
       return null;

@@ -10,6 +10,9 @@ import teamRadio from "./team-radio";
 import topShorts from "./top-shorts";
 import trendChart from "./trend-chart";
 import uploadTiming from "./upload-timing";
+import uploadCalendar from "./upload-calendar";
+import shortLength from "./short-length";
+import catalogShare from "./catalog-share";
 
 /**
  * ZENTRALE WIDGET-LISTE – je Seite.
@@ -35,6 +38,10 @@ export const PAGES: Record<DashboardPageId, WidgetDefinition[]> = {
     statusBar,
     // Phase 6.2: beste Upload-Uhrzeit
     uploadTiming,
+    // Phase 7: Kalender, Short-Länge, Langzeit-Anteil
+    uploadCalendar,
+    shortLength,
+    catalogShare,
     // Phase 5: YouTube Analytics (blenden sich aus, wenn die Datenquelle keine Analytics hat)
     analyticsOverview,
     subsPerShort,

@@ -15,7 +15,8 @@ import {
   zoneShiftHours,
 } from "@/lib/format";
 import { slotOf, TIMING } from "@/lib/metrics/upload-timing";
-import { TimingHeatmap, slotTone } from "./TimingHeatmap";
+import { slotTone } from "@/components/ui/slot-tone";
+import { TimingHeatmap } from "./TimingHeatmap";
 
 const COMPETITORS = "competitors";
 const H = 3_600_000;

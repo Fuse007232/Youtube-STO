@@ -94,7 +94,7 @@ export function pacificDate(t: number): string {
 
 /**
  * Alles, was das Dashboard braucht, für einen Kanal (5 Abfragen):
- * Tageswerte (35 Tage), Shorts (28 Tage), Traffic-Quellen und Länder (28 Tage).
+ * Tageswerte (200 Tage – für den Upload-Kalender), Shorts (28 Tage), Traffic-Quellen und Länder (28 Tage).
  */
 export async function fetchChannelAnalytics(
   accessToken: string,
@@ -103,7 +103,7 @@ export async function fetchChannelAnalytics(
 ): Promise<ChannelAnalyticsReport> {
   const DAY = 86_400_000;
   const endDate = pacificDate(now);
-  const start35 = pacificDate(now - 35 * DAY);
+  const startDaily = pacificDate(now - 200 * DAY);
   const start28 = pacificDate(now - 28 * DAY);
 
   // „engagedViews“ (Shorts-Aufrufe ohne Wiederholungen) – falls die API die Kennzahl
@@ -112,14 +112,14 @@ export async function fetchChannelAnalytics(
   try {
     daily = await queryReport(
       accessToken,
-      { startDate: start35, endDate, metrics: [...BASE_METRICS, "engagedViews"], dimensions: ["day"], sort: "day" },
+      { startDate: startDaily, endDate, metrics: [...BASE_METRICS, "engagedViews"], dimensions: ["day"], sort: "day" },
       fetchFn,
     );
   } catch (e) {
     if (!(e instanceof AnalyticsApiError) || e.status !== 400) throw e;
     daily = await queryReport(
       accessToken,
-      { startDate: start35, endDate, metrics: BASE_METRICS, dimensions: ["day"], sort: "day" },
+      { startDate: startDaily, endDate, metrics: BASE_METRICS, dimensions: ["day"], sort: "day" },
       fetchFn,
     );
   }

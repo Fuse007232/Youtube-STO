@@ -10,7 +10,15 @@ import {
 } from "@/lib/metrics/deltas";
 import { topShortsPerChannel } from "@/lib/metrics/ranking";
 import { channelShortStats } from "@/lib/metrics/standings";
-import { buildUploadTiming, type ActivityProfile, type FirstDayRow } from "@/lib/metrics/upload-timing";
+import { buildUploadCalendar } from "@/lib/metrics/calendar";
+import { analyzeCatalog } from "@/lib/metrics/catalog";
+import { analyzeShortLength } from "@/lib/metrics/short-length";
+import {
+  buildTimingSamples,
+  buildUploadTiming,
+  type ActivityProfile,
+  type FirstDayRow,
+} from "@/lib/metrics/upload-timing";
 import type {
   AlertItem,
   ChannelAnalytics,
@@ -65,6 +73,8 @@ export interface RawDashboardInput {
     /** Aktivitätsprofil je eigenem Kanal. */
     activity: Map<string, ActivityProfile>;
   } | null;
+  /** Aufrufe je Tag (Analytics) je eigenem Kanal – für den Upload-Kalender. */
+  dailyViews?: Map<string, Map<string, number>>;
 }
 
 function summarize(raw: RawChannelData): ChannelSummary | null {
@@ -158,16 +168,7 @@ export function buildDashboard(input: RawDashboardInput): DashboardData {
     analytics: input.analytics ?? null,
     alerts: input.alerts ?? null,
     standings: input.rivals ? buildStandings(channels, input) : null,
-    uploadTiming: input.timing
-      ? buildUploadTiming({
-          ownChannelIds: input.channels.map((c) => c.channel.id),
-          ownShorts: input.shorts,
-          rivalShorts: input.rivalShorts ?? [],
-          firstDay: input.timing.firstDay,
-          activity: input.timing.activity,
-          now: input.now,
-        })
-      : null,
+    ...buildAnalysis(input),
   };
 }
 
@@ -181,4 +182,30 @@ function buildStandings(own: ChannelSummary[], input: RawDashboardInput): Standi
     ...channelShortStats(allShorts, summary.channel.id, input.now, input.hasHistory),
   });
   return [...own.map((c) => entry(c, true)), ...rivals.map((c) => entry(c, false))];
+}
+
+/** Auswertungen für die Analyse-Seite (Boxenstrategie, Short-Länge, Langzeit-Anteil, Kalender). */
+function buildAnalysis(
+  input: RawDashboardInput,
+): Pick<DashboardData, "uploadTiming" | "shortLength" | "catalog" | "calendar"> {
+  const ownChannelIds = input.channels.map((c) => c.channel.id);
+  const rivalShorts = input.rivalShorts ?? [];
+  const base = { ownChannelIds, ownShorts: input.shorts, rivalShorts, firstDay: input.timing?.firstDay ?? [], now: input.now };
+  const samples = buildTimingSamples(base);
+  const durations = new Map([...input.shorts, ...rivalShorts].map((s) => [s.id, s.durationSec]));
+
+  return {
+    uploadTiming: input.timing ? buildUploadTiming({ ...base, activity: input.timing.activity }, samples) : null,
+    shortLength:
+      input.shorts.length === 0
+        ? null
+        : [
+            ...ownChannelIds.map((id) => analyzeShortLength(id, samples.own.get(id) ?? [], durations)),
+            ...(rivalShorts.length > 0 ? [analyzeShortLength("competitors", samples.rivals, durations)] : []),
+          ],
+    catalog: input.hasHistory ? analyzeCatalog(ownChannelIds, input.shorts, input.now) : null,
+    calendar: ownChannelIds.map((channelId) =>
+      buildUploadCalendar({ channelId, shorts: input.shorts, dailyViews: input.dailyViews?.get(channelId), now: input.now }),
+    ),
+  };
 }

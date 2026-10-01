@@ -250,6 +250,7 @@ export class MockDataSource implements DataSource {
     }
 
     const shorts = cache.sims.flatMap((s) => s.shorts);
+    const analytics = CHANNELS.map((c) => mockAnalytics(c, shorts, lastSnapshotAt));
     return buildDashboard({
       source: this.kind,
       isDemo: true,
@@ -258,7 +259,8 @@ export class MockDataSource implements DataSource {
       channels: cache.sims.map((s) => s.raw),
       shorts,
       quotaUsedToday: null,
-      analytics: CHANNELS.map((c) => mockAnalytics(c, shorts, lastSnapshotAt)),
+      analytics,
+      dailyViews: new Map(analytics.map((a) => [a.channelId, new Map(a.daily.map((d) => [d.day, d.views]))])),
       alerts: mockAlerts(shorts, lastSnapshotAt),
       rivals: cache.rivals.map((s) => s.raw),
       rivalShorts: cache.rivals.flatMap((s) => s.shorts),

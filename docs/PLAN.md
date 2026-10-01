@@ -30,7 +30,8 @@ YouTube hat keine Echtzeit-Schnittstelle. Deshalb holt ein Hintergrund-Job alle 
 | 3 | Supabase-Datenbank, Schnappschüsse, 24h-Duell | ✅ fertig (erste Schnappschüsse am 01.10.2026 ab 18:50) |
 | 4 | Veröffentlichung auf Vercel (inkl. Passwortschutz und Zeitplaner) | ✅ fertig (Login aktiv, Cron seit 01.10. 19:15) |
 | 5 | OAuth-Login + YouTube Analytics API | ✅ fertig (beide Kanäle verbunden) |
-| 6 | Extras (Alarm, beste Upload-Zeit, Konkurrenz) | 🔄 Alarm ✅, Konkurrenz ✅; Upload-Zeit offen |
+| 6 | Extras (Alarm, beste Upload-Zeit, Konkurrenz) | ✅ fertig |
+| 7 | Feinschliff: Seiten Rennen/Analyse, Short-Länge, Langzeit-Anteil, Upload-Kalender, Short-Steckbrief, Kommentar-Puls, Konkurrenz-Radar, Rennbericht, Wächter | 🔄 läuft |
 
 ---
 
@@ -392,6 +393,36 @@ Erste echte Auswertung: **BRV – „Teste mehr um 14–16 Uhr“, +49 % gegenü
 **Ergebnis:** Gebaut wie geplant (Migration 0007, `src/lib/youtube/resolve-channel.ts`, `src/lib/competitors/tracked.ts`, `src/config/competitors.ts`, Widget `standings`, Routen `/api/competitors/add|remove`). Echter Zeitplaner-Lauf mit der neuen Kanal-Liste ok. 136 Tests.
 
 **Wo ich dich brauche:** Resend-Konto + `RESEND_API_KEY`/`ALERT_EMAIL_TO` in Vercel (Alarm), Liste der Konkurrenz-Kanäle (Vergleich).
+
+---
+
+### Phase 7: Feinschliff (Wunschliste vom 01.10.2026)
+
+**Gewünscht:** Ideen 1, 7, 10, 12, 13, 18, 23, 24 aus der Ideenliste. F1-Stil bleibt. Grundsatz: **aufgeräumt** – das Wichtigste sofort sichtbar, alle Details einen Klick entfernt.
+
+**Wo was hinkommt (Aufteilung):**
+- **Seite „Rennen“** (Startseite, live): Status, Kanäle, Duell, Rennverlauf, Fahrerwertung, **Konkurrenz-Radar** (neu), **Kommentar-Puls** (neu), Top Shorts, Boxenfunk.
+- **Seite „Analyse“** (`/analyse`, in Ruhe): Boxenstrategie, **Upload-Kalender** (neu), **Langzeit-Anteil** (neu), **Beste Short-Länge** (neu), Analytics-Überblick, Abo-Magneten, Herkunft.
+- **Short-Steckbrief** (`/short/<id>`): Klick auf einen Short in jeder Liste (Top Shorts, Abo-Magneten, Boxenfunk, Testprotokoll, Radar, Kommentare).
+- **Rennbericht + Wächter**: E-Mails, Einstellungen zeigen Status + Test-Knopf.
+- Umschalter „Rennen | Analyse“ oben im Kopf; jedes Widget bekommt in der Registry seine Seite (`page`).
+
+**Schritte (je ein Commit):**
+1. **Navigation** Rennen / Analyse.
+2. **Analyse-Widgets:**
+   - *Beste Short-Länge* („Renndistanz“): gleicher fairer Leistungs-Index wie die Boxenstrategie, nach Dauer (0–15 s, 15–30 s, 30–45 s, 45–60 s, über 60 s), mit Sicherheit und Anzahl.
+   - *Langzeit-Anteil* („Reifenverschleiß“): Aufrufe der letzten 24 Std. und 7 Tage nach Alter der Shorts (0–2 Tage, 3–7, 8–30, 31–90, älter) + „Dauerläufer“ (alte Shorts, die noch viel holen).
+   - *Upload-Kalender*: Raster wie bei GitHub, letzte 26 Wochen, Farbe = Aufrufe des Tages (YouTube Analytics), Punkt = Upload; Upload-Serie (aktuell + längste). Dafür holt Analytics einmalig 365 Tage Verlauf nach.
+3. **Short-Steckbrief:** Kennzahlen (Aufrufe, Likes, Kommentare, Like-Quote), Rang im Kanal (gesamt / 7 Tage), Aufrufe-Kurve seit Messbeginn + Aufrufe pro Stunde, Analytics (Ø gesehen, neue Abos, Wiedergabezeit – sofern unter den Top 200 der 28 Tage), Boxenstrategie-Ergebnis (Zeitfenster + Index), Kommentare.
+4. **Kommentar-Puls:** stündlich (im vollen Lauf) die neuesten 100 Kommentare je Kanal (`commentThreads`, 1 Einheit) + die beliebtesten Kommentare der 5 aktuell stärksten Shorts je Kanal (je 1 Einheit) → ca. 300 Einheiten/Tag. Widget: neueste, meistgelikte, Shorts mit den meisten neuen Kommentaren in 24 Std. Neue Tabelle `comments`.
+5. **Konkurrenz-Radar:** Konkurrenz-Shorts, deren Aufrufe der letzten 24 Std. weit über dem Üblichen ihres Kanals liegen (Faktor, Tempo/Std., Alter) – als Feed.
+6. **Rennbericht + Wächter:**
+   - *Rennbericht* täglich ab 8 Uhr (erster Zeitplaner-Lauf nach 8 Uhr): letzte 24 Std. je Kanal vs. Vortag, bester Short, Fahrerwertung, Alarme, Empfehlung der Boxenstrategie.
+   - *Wächter* (nach jedem Lauf, je Problem nur einmal): Short verschwunden (gelöscht/privat/gesperrt), Analytics-Verbindung defekt/abgelaufen, Kontingent ≥ 80 %, Schnappschüsse schlagen fehl, Zeitplaner hatte eine Lücke.
+   - Rückfall: Vercel-Tages-Cron (`/api/cron/watchdog`, 1×/Tag) meldet, falls der Supabase-Zeitplaner ganz steht, und schickt den Rennbericht nach, falls er fehlt.
+   - Tabelle `notifications` merkt sich, was schon verschickt wurde. Einstellungen: Status + „Rennbericht jetzt senden“.
+
+**Wo ich dich brauche:** nirgends – Resend und `ALERT_EMAIL_TO` sind schon eingerichtet. Optional: Rennbericht im Postfach als „kein Spam“ markieren.
 
 ---
 

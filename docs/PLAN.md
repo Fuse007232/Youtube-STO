@@ -416,7 +416,9 @@ Falls du das `CRON_SECRET` nicht mehr hast: Erzeuge ein neues (Anleitung K), tra
 2. Menü ☰ → **„APIs & Dienste“** → **„Bibliothek“** → **„YouTube Analytics API“** → **„Aktivieren“** (falls noch nicht aktiv).
 3. Menü ☰ → **„APIs & Dienste“** → **„OAuth-Zustimmungsbildschirm“** (heißt evtl. **„Google Auth Platform“**) → **„Jetzt starten“**: App-Name `Mein YouTube Dashboard`, Support-E-Mail, Zielgruppe **„Extern“**, Kontakt-E-Mail → zustimmen → **„Erstellen“**.
 4. **„Datenzugriff“** → **„Bereiche hinzufügen oder entfernen“** → `.../auth/yt-analytics.readonly` und `.../auth/youtube.readonly` anhaken → **„Aktualisieren“** → **„Speichern“**.
-5. **„Zielgruppe“** → **„App veröffentlichen“** → Status **„In Produktion“** (sonst laufen Freigaben nach 7 Tagen ab).
+5. **„Branding“** ausfüllen (sonst ist „App veröffentlichen“ ausgegraut): Support-E-Mail, **kein Logo** (Logo erzwingt eine Google-Prüfung), Startseite `https://youtube-sto.vercel.app`, Datenschutzerklärung `https://youtube-sto.vercel.app/datenschutz`, autorisierte Domain `youtube-sto.vercel.app`, Entwickler-E-Mail → Speichern.
+   Dann **„Zielgruppe“** → **„App veröffentlichen“** → Status **„In Produktion“** (sonst laufen Freigaben nach 7 Tagen ab).
+   Notausgang: Status „Test“ lassen und unter „Zielgruppe → Testnutzer“ beide Google-Konten eintragen (dann alle 7 Tage neu verbinden).
 6. **„Clients“** → **„+ Client erstellen“** → **„Webanwendung“**, Name `dashboard`, **Autorisierte Weiterleitungs-URI:** `https://youtube-sto.vercel.app/api/auth/youtube/callback` → **„Erstellen“**.
 7. **Client-ID** und **Clientschlüssel** sofort kopieren (der Schlüssel wird evtl. nur einmal angezeigt) → in Vercel als `GOOGLE_CLIENT_ID` und `GOOGLE_CLIENT_SECRET`, dazu `TOKEN_ENCRYPTION_KEY` (Anleitung K) → Redeploy.
 

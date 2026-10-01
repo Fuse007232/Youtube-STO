@@ -250,6 +250,7 @@ Geschätzter Bedarf: deutlich unter 100 MB pro Jahr.
 1. Passwortschutz: Login-Seite mit einem Passwort (`DASHBOARD_PASSWORD`), angemeldet bleiben per sicherem Cookie (30 Tage).
 2. Produktions-Einstellungen prüfen, Fehlerseiten, Ladezustände.
 3. SQL-Schnipsel für Supabase Cron vorbereiten (ruft alle 15 Min. `/api/cron/snapshot` auf).
+   Hinweis: Deine Vercel-Adressen sind aktuell durch „Vercel Authentication“ geschützt (nur du siehst sie, eingeloggt bei Vercel). Der Zeitplaner kommt da nicht durch – wir nutzen dann entweder Vercels „Protection Bypass for Automation“ (geheimer Header) oder schalten den Vercel-Schutz ab und verlassen uns auf unser eigenes Passwort. Entscheidung in Phase 4.
 4. Pull Request von meinem Arbeits-Branch nach `main` (die Produktions-Version). Den mergst du.
 
 **Wo ich dich brauche:**

@@ -11,7 +11,7 @@ Privates Dashboard für die 2 YouTube-Shorts-Kanäle des Nutzers: beide Kanäle 
 - Kanäle: **Bra1nrotvault** (`UCJtW0caGhgqEWxNh2HcsGPg`, Kürzel BRV, ~102K Abos, ~350 Shorts) und **Granny Aura** (`UCSxDp-sHQ49VwIz0Ix9fusA`, GRA, ~28K Abos, ~100 Shorts). Zwei **verschiedene** Google-Konten (keine Brand-Konten). Nur Shorts, keine langen Videos.
 - Vollständiger Plan, Phasen, Zugangsdaten, Klick-Anleitungen und Entscheidungen: **`docs/PLAN.md`**
 - **Aktueller Stand:** Phase 1 fertig (Design abgenommen). Phase 2 (echte Zahlen über YouTube Data API) gebaut; Echt-Test wartet darauf, dass der Nutzer `YOUTUBE_API_KEY` in Vercel einträgt. Nächste Phase: 3 (Supabase + Schnappschüsse).
-- **Vercel:** Projekt `youtube-sto` (Team-Scope `felixpensel3-3483s-projects`). Der Branch `claude/youtube-shorts-dashboard-c6jkd9` ist dort die **Production**-Branch. Das Vercel-MCP kann Deployments lesen (`list_deployments` mit `projectId` ohne `teamId`); team-gebundene Aufrufe (z. B. Umgebungsvariablen) sind nicht autorisiert.
+- **Vercel:** Projekt `youtube-sto` (Team-Scope `felixpensel3-3483s-projects`). Der Branch `claude/youtube-shorts-dashboard-c6jkd9` ist dort die **Production**-Branch. Das Vercel-MCP kann Deployments lesen (`list_deployments` mit `projectId` ohne `teamId`); team-gebundene Aufrufe (z. B. Umgebungsvariablen, `web_fetch_vercel_url`) sind nicht autorisiert. **Alle Vercel-Adressen (auch Production) sind durch „Vercel Authentication“ geschützt** → nur der eingeloggte Nutzer sieht das Dashboard; `curl` von hier liefert 302. Für Phase 4 beachten: Supabase Cron braucht dann einen „Protection Bypass for Automation“-Header oder der Schutz wird durch den eigenen Passwortschutz ersetzt.
 
 ## Zusammenarbeit (wichtig)
 

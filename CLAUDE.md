@@ -10,9 +10,9 @@ Privates Dashboard für die 2 YouTube-Shorts-Kanäle des Nutzers: beide Kanäle 
 
 - Kanäle: **Bra1nrotvault** (`UCJtW0caGhgqEWxNh2HcsGPg`, Kürzel BRV, YouTube-Titel „Brainrot Vault“, Stand 01.10.2026: ~103K Abos, ~213 Mio. Aufrufe, 332 Shorts) und **Granny Aura** (`UCSxDp-sHQ49VwIz0Ix9fusA`, GRA, ~28,7K Abos, ~45 Mio. Aufrufe, 101 Shorts). Zwei **verschiedene** Google-Konten (keine Brand-Konten). Nur Shorts, keine langen Videos.
 - Vollständiger Plan, Phasen, Zugangsdaten, Klick-Anleitungen und Entscheidungen: **`docs/PLAN.md`**
-- **Aktueller Stand:** Phase 3 fertig: Datenbank läuft, Dashboard zeigt „LIVE · DATENBANK“. `YOUTUBE_API_KEY`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `CRON_SECRET` sind in Vercel UND in der Claude-Cloud-Umgebung gesetzt → Schnappschuss von hier testbar: `npx next start -p 3123` und `curl -H "Authorization: Bearer $CRON_SECRET" -H "x-snapshot-trigger: manual" localhost:3123/api/cron/snapshot` (Werte nie ausgeben). Nächste Phase: 4 (Zeitplaner alle 15 Min. + Schutz). Phase 1 fertig (Design abgenommen). Phase 2 fertig: echte Zahlen laufen auf Vercel (`YOUTUBE_API_KEY` ist in Vercel und in der Claude-Cloud-Umgebung eingetragen; in der Cloud erst ab einer neuen Session sichtbar). ~21 Einheiten pro Abruf. Nächste Phase: 3 (Supabase + Schnappschüsse).
+- **Aktueller Stand:** Phase 4 gebaut (eigener Passwortschutz + Supabase-Cron alle 15 Min.); wartet darauf, dass der Nutzer `DASHBOARD_PASSWORD` + `SESSION_SECRET` in Vercel und `cron_secret` im Supabase-Vault anlegt. Danach Phase 5 (OAuth + Analytics). Phase 3 fertig: Datenbank läuft, Dashboard zeigt „LIVE · DATENBANK“. `YOUTUBE_API_KEY`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `CRON_SECRET` sind in Vercel UND in der Claude-Cloud-Umgebung gesetzt → Schnappschuss von hier testbar: `npx next start -p 3123` und `curl -H "Authorization: Bearer $CRON_SECRET" -H "x-snapshot-trigger: manual" localhost:3123/api/cron/snapshot` (Werte nie ausgeben). Nächste Phase: 4 (Zeitplaner alle 15 Min. + Schutz). Phase 1 fertig (Design abgenommen). Phase 2 fertig: echte Zahlen laufen auf Vercel (`YOUTUBE_API_KEY` ist in Vercel und in der Claude-Cloud-Umgebung eingetragen; in der Cloud erst ab einer neuen Session sichtbar). ~21 Einheiten pro Abruf. Nächste Phase: 3 (Supabase + Schnappschüsse).
 - **Supabase:** Projekt `youtube-dashboard`, ID/ref `kdqxslwojkvhffhjctrv`, Region eu-central-1, URL `https://kdqxslwojkvhffhjctrv.supabase.co` (Organisation „Fuse007232's Org“). Das andere Projekt „Kanalpult“ gehört NICHT zu diesem Dashboard – nicht anfassen. Das Supabase-MCP hat Zugriff (Migrationen, SQL, Advisors); geheime Schlüssel liefert es nicht.
-- **Vercel:** Projekt `youtube-sto` (Team-Scope `felixpensel3-3483s-projects`). Der Branch `claude/youtube-shorts-dashboard-c6jkd9` ist dort die **Production**-Branch. Das Vercel-MCP kann Deployments lesen (`list_deployments` mit `projectId` ohne `teamId`); team-gebundene Aufrufe (z. B. Umgebungsvariablen, `web_fetch_vercel_url`) sind nicht autorisiert. **Alle Vercel-Adressen (auch Production) sind durch „Vercel Authentication“ geschützt** → nur der eingeloggte Nutzer sieht das Dashboard; `curl` von hier liefert 302. Für Phase 4 beachten: Supabase Cron braucht dann einen „Protection Bypass for Automation“-Header oder der Schutz wird durch den eigenen Passwortschutz ersetzt.
+- **Vercel:** Projekt `youtube-sto` (Team-Scope `felixpensel3-3483s-projects`). Der Branch `claude/youtube-shorts-dashboard-c6jkd9` ist dort die **Production**-Branch. Das Vercel-MCP kann Deployments lesen (`list_deployments` mit `projectId` ohne `teamId`); team-gebundene Aufrufe (z. B. Umgebungsvariablen, `web_fetch_vercel_url`) sind nicht autorisiert. **Feste Adresse: https://youtube-sto.vercel.app** – sie ist NICHT durch „Vercel Authentication“ geschützt (das gilt nur für die Vorschau-/Deployment-Adressen) → Schutz übernimmt unser eigener Login (Phase 4). Von hier aus per `curl` erreichbar.
 
 ## Zusammenarbeit (wichtig)
 
@@ -50,7 +50,7 @@ Achtung: Prozesse nicht mit `pkill -f …` oder einem `grep`-Muster beenden, das
 
 - Next.js 16 (App Router, Turbopack) + TypeScript, Tailwind CSS 4, Recharts 3, Motion (`motion/react`, früher Framer Motion), Vitest. Supabase (Postgres) ab Phase 3, Vercel Hobby.
 - **Next.js 16 hat Änderungen gegenüber älterem Wissen** (z. B. `proxy.ts` statt `middleware.ts`, async `params`/`cookies()`). Doku liegt in `node_modules/next/dist/docs/`, siehe `AGENTS.md`.
-- **Zeitplaner (ab Phase 4):** Supabase Cron ruft alle 15 Min. `/api/cron/snapshot` (geschützt mit `CRON_SECRET`) auf. Grund: Vercel-Hobby-Cron nur 1×/Tag.
+- **Zeitplaner (Phase 4):** Supabase Cron ruft alle 15 Min. `/api/cron/snapshot` (geschützt mit `CRON_SECRET`) auf. Grund: Vercel-Hobby-Cron nur 1×/Tag.
 
 ## Architektur
 
@@ -64,6 +64,8 @@ Achtung: Prozesse nicht mit `pkill -f …` oder einem `grep`-Muster beenden, das
 - **Kanal-Aufrufe für Gewinne/Kurven/Hochrechnung = Summe der Short-Aufrufe** (`channel_snapshots.video_views`, Migration 0002); die YouTube-Kanalstatistik `views` hinkt Stunden hinterher und dient nur als Rückfall.
 - `src/lib/snapshot/run-snapshot.ts`: ein Lauf. `quick` (Kanäle + neueste 50 Uploads + Shorts der letzten 7 Tage) oder `full` (alle Shorts, höchstens stündlich); Video-Schnappschuss nur bei geänderten Aufrufen; entfernte Videos markieren; nach `full` 1× täglich verdichten. `runSnapshotIfDue` überspringt, wenn in den letzten 12 Min. schon ein Lauf startete.
 - `src/app/api/cron/snapshot/route.ts`: GET/POST, `Authorization: Bearer <CRON_SECRET>`, optional `?mode=quick|full`.
+- **Zeitplaner:** Supabase `pg_cron`-Job `dashboard-snapshot` (`*/15 * * * *`, Migration 0003) → `net.http_get` auf `https://youtube-sto.vercel.app/api/cron/snapshot`, Geheimwort aus `vault.decrypted_secrets` (Name `cron_secret`). Antworten prüfen: `select * from net._http_response order by created desc` (6 Std. aufbewahrt) und `snapshot_runs`.
+- **Passwortschutz:** `src/proxy.ts` (Türsteher, Matcher lässt `/login`, `/api/auth/*`, `/api/cron/*`, statische Dateien durch), `src/lib/auth/session.ts` (HMAC-signiertes Cookie `sto_session`, 30 Tage, Passwort-Prüfsumme in der Signatur), `src/lib/auth/server.ts` (`isAuthenticated()` für Seiten/API), `src/app/login/page.tsx`, `src/app/api/auth/login|logout`. Online ohne `DASHBOARD_PASSWORD`/`SESSION_SECRET` → gesperrt; lokal (`next dev`) offen. Neue Seiten/API-Routen: zusätzlich `isAuthenticated()` prüfen.
 - `supabase/migrations/`: SQL-Migrationen. Neue Migrationen als nächste Nummer anlegen UND per Supabase-MCP `apply_migration` ausführen (gleicher Inhalt).
 - `src/lib/data/youtube/YouTubeDataSource.ts` (Phase 2): holt Kanäle + alle Uploads + Video-Statistiken (Kanäle und 50er-Pakete parallel), Zwischenspeicher pro Instanz: <10 Min. frisch, bis 1 Std. „stale-while-revalidate“ (alte Zahlen sofort, Auffrischen im Hintergrund über Next.js `after()`), `hasHistory: false` (nur aktueller Stand).
 - `src/lib/youtube/`: `client.ts` (channels/playlistItems/videos, 50er-Pakete, zählt Einheiten), `parse.ts`, `errors.ts` (deutsche Fehlertexte), `quota.ts` (Tageszähler, Reset Mitternacht Pazifik). Test-Doppel: `__fixtures__/fake-youtube.ts`.
@@ -89,6 +91,10 @@ src/lib/youtube/            YouTube-Data-API-Client, Parser, Fehlertexte, Kontin
 src/lib/db/                 Datenbank-Schnittstelle + Supabase-Umsetzung
 src/lib/snapshot/           Schnappschuss-Lauf (quick/full, Verdichtung)
 src/app/api/cron/snapshot/  Endpunkt für den Zeitplaner
+src/proxy.ts                Türsteher (Login-Pflicht)
+src/lib/auth/               Passwort, signiertes Cookie
+src/app/login/              Login-Seite
+src/app/api/auth/           login / logout
 supabase/migrations/        SQL-Migrationen (über Supabase-MCP angewendet)
 src/components/dashboard/SetupError.tsx  Fehlerseite, wenn Daten nicht ladbar sind
 src/app/loading.tsx         Ladebildschirm („Formationsrunde“, F1-Startampel)
@@ -133,7 +139,7 @@ Aktuell registriert (Reihenfolge = Dashboard): `status-bar` (full), `channel-ove
 
 ## Umgebungsvariablen
 
-Vollständige Liste mit Herkunft: `docs/PLAN.md` §5 und `.env.example`. Kurz: `DATA_SOURCE`, `YOUTUBE_API_KEY`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `CRON_SECRET`, `DASHBOARD_PASSWORD`, `SESSION_SECRET`, `APP_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `TOKEN_ENCRYPTION_KEY` (später Push/E-Mail für Alarme).
+Vollständige Liste mit Herkunft: `docs/PLAN.md` §5 und `.env.example`. Kurz: `DATA_SOURCE`, `YOUTUBE_API_KEY`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `CRON_SECRET`, `DASHBOARD_PASSWORD`, `SESSION_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `TOKEN_ENCRYPTION_KEY` (später Push/E-Mail für Alarme).
 
 ## Cloud-Session-Hinweise
 

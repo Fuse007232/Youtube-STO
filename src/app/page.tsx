@@ -1,5 +1,7 @@
+import { redirect } from "next/navigation";
 import { Dashboard } from "@/components/dashboard/Dashboard";
 import { SetupError } from "@/components/dashboard/SetupError";
+import { isAuthenticated } from "@/lib/auth/server";
 import { getDataSource } from "@/lib/data";
 import type { DashboardData } from "@/lib/data/types";
 
@@ -7,6 +9,7 @@ import type { DashboardData } from "@/lib/data/types";
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
+  if (!(await isAuthenticated())) redirect("/login");
   let initialData: DashboardData;
   try {
     initialData = await getDataSource().getDashboard();

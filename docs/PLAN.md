@@ -1,6 +1,6 @@
 # Projektplan: YouTube-Shorts-Dashboard
 
-> Stand: Phase 3 fertig (Datenbank sammelt Schnappschüsse, Dashboard liest daraus). Nächste Phase: 4 (Zeitplaner alle 15 Min. + Schutz).
+> Stand: Phase 4 gebaut (Passwortschutz + Zeitplaner). Wartet auf Passwort in Vercel und Geheimwort im Supabase-Tresor.
 > Dieses Dokument wird nach jeder Phase aktualisiert (Status-Tabelle unten).
 
 ---
@@ -28,7 +28,7 @@ YouTube hat keine Echtzeit-Schnittstelle. Deshalb holt ein Hintergrund-Job alle 
 | 1 | Grundgerüst + Dashboard mit Beispieldaten | ✅ fertig (Design abgenommen) |
 | 2 | Echte Zahlen über die YouTube Data API | ✅ fertig (Zahlen geprüft) |
 | 3 | Supabase-Datenbank, Schnappschüsse, 24h-Duell | ✅ fertig (erste Schnappschüsse am 01.10.2026 ab 18:50) |
-| 4 | Veröffentlichung auf Vercel (inkl. Passwortschutz und Zeitplaner) | ⏳ offen |
+| 4 | Veröffentlichung auf Vercel (inkl. Passwortschutz und Zeitplaner) | ✅ gebaut, wartet auf deine 2 Einträge |
 | 5 | OAuth-Login + YouTube Analytics API | ⏳ offen |
 | 6 | Extras (Alarm, beste Upload-Zeit, Konkurrenz) | ⏳ offen |
 
@@ -259,19 +259,22 @@ Geschätzter Bedarf: deutlich unter 100 MB pro Jahr.
 
 **Ziel:** Das Dashboard läuft dauerhaft unter einer festen Adresse, ist passwortgeschützt und sammelt automatisch alle 15 Minuten Daten.
 
-**Arbeitsschritte (mache ich):**
-1. Passwortschutz: Login-Seite mit einem Passwort (`DASHBOARD_PASSWORD`), angemeldet bleiben per sicherem Cookie (30 Tage).
-2. Produktions-Einstellungen prüfen, Fehlerseiten, Ladezustände.
-3. SQL-Schnipsel für Supabase Cron vorbereiten (ruft alle 15 Min. `/api/cron/snapshot` auf).
-   Hinweis: Deine Vercel-Adressen sind aktuell durch „Vercel Authentication“ geschützt (nur du siehst sie, eingeloggt bei Vercel). Der Zeitplaner kommt da nicht durch – wir nutzen dann entweder Vercels „Protection Bypass for Automation“ (geheimer Header) oder schalten den Vercel-Schutz ab und verlassen uns auf unser eigenes Passwort. Entscheidung in Phase 4.
-4. Pull Request von meinem Arbeits-Branch nach `main` (die Produktions-Version). Den mergst du.
+**Entscheidung:** eigener Passwortschutz (Variante B) statt Vercel-Login.
+**Feste Adresse:** https://youtube-sto.vercel.app. Diese Hauptadresse war **nicht** durch „Vercel Authentication“ geschützt, denn der Schutz gilt nur für die Vorschau-Adressen. Deshalb kam der Passwortschutz hier dringend dazu. Der Zeitplaner braucht dadurch keinen Vercel-Durchlass.
+
+**Arbeitsschritte (gemacht):**
+1. Passwortschutz:
+   - `src/proxy.ts` ist der Türsteher. Login-Seite `/login` (F1-Stil), angemeldet bleiben per signiertem Cookie (30 Tage). Abmelden-Knopf oben rechts.
+   - Zusätzlich prüfen Seite und `/api/dashboard` selbst. Ohne eingetragenes Passwort ist online alles gesperrt (sicherer Standard).
+   - Passwort ändern meldet alle Geräte ab. Falsche Eingaben werden gebremst.
+2. Zeitplaner: Migration `0003_cron_schedule.sql`. Supabase Cron (`pg_cron` + `pg_net`) ruft alle 15 Min. `GET https://youtube-sto.vercel.app/api/cron/snapshot` auf. Das Geheimwort liest er aus dem Supabase-Tresor (Vault, Name `cron_secret`), nicht aus dem Code.
+3. Kein Pull Request nötig: Der Arbeits-Branch ist bei Vercel bereits die Produktions-Branch.
 
 **Wo ich dich brauche:**
-- Vercel-Projekt (falls nicht schon in Phase 1) + alle Umgebungsvariablen eintragen → **Anleitung D**
-- Pull Request auf GitHub mergen → **Anleitung H**
-- Zeitplaner in Supabase einschalten → **Anleitung G**
+- `DASHBOARD_PASSWORD` + `SESSION_SECRET` in Vercel eintragen → **Anleitung D** (+ Anleitung K für das Geheimwort)
+- `cron_secret` im Supabase-Tresor anlegen → **Anleitung G**
 
-**Fertig, wenn:** Du öffnest `https://<dein-projekt>.vercel.app`, musst dich mit Passwort anmelden, und nach 24 Stunden zeigt das Duell echte 24h-Gewinne. In `quota_log` siehst du alle 15 Min. einen neuen Eintrag.
+**Fertig, wenn:** Du öffnest https://youtube-sto.vercel.app, musst dich mit Passwort anmelden, in `snapshot_runs` erscheint alle 15 Min. ein Lauf mit `trigger = cron`, und nach 24 Stunden zeigt das Duell echte 24h-Gewinne.
 
 ---
 
@@ -317,10 +320,9 @@ Jedes Extra ist ein eigener kleiner Schritt:
 | `YOUTUBE_API_KEY` | Schlüssel für öffentliche YouTube-Zahlen | Anleitung A | 2 | Vercel, Claude-Umgebung |
 | `SUPABASE_URL` | Adresse deiner Datenbank | Anleitung E | 3 | Vercel, Claude-Umgebung |
 | `SUPABASE_SECRET_KEY` | Geheimer Server-Schlüssel der Datenbank (`sb_secret_…`) | Anleitung E | 3 | Vercel, Claude-Umgebung |
-| `CRON_SECRET` | Geheimwort, damit nur dein Zeitplaner Schnappschüsse auslösen darf | Selbst erzeugen (Anleitung K) | 3 | Vercel, Claude-Umgebung, Supabase Cron (Anleitung G) |
-| `DASHBOARD_PASSWORD` | Dein Login-Passwort fürs Dashboard | Selbst ausdenken (lang!) | 4 | Vercel |
+| `CRON_SECRET` | Geheimwort, damit nur dein Zeitplaner Schnappschüsse auslösen darf | Selbst erzeugen (Anleitung K) | 3 | Vercel, Claude-Umgebung, Supabase-Tresor als `cron_secret` (Anleitung G) |
+| `DASHBOARD_PASSWORD` | Dein Login-Passwort fürs Dashboard | Selbst ausdenken (lang, mind. 12 Zeichen; ändern meldet alle Geräte ab) | 4 | Vercel |
 | `SESSION_SECRET` | Geheimnis zum Signieren des Login-Cookies | Selbst erzeugen (Anleitung K) | 4 | Vercel |
-| `APP_URL` | Feste Adresse, z. B. `https://xyz.vercel.app` | Vercel | 4 | Vercel |
 | `GOOGLE_CLIENT_ID` | OAuth-Kennung deiner App | Anleitung I | 5 | Vercel |
 | `GOOGLE_CLIENT_SECRET` | OAuth-Geheimnis deiner App | Anleitung I | 5 | Vercel |
 | `TOKEN_ENCRYPTION_KEY` | Schlüssel zum Verschlüsseln der Refresh-Tokens | Selbst erzeugen (Anleitung K) | 5 | Vercel |
@@ -387,11 +389,18 @@ Jedes Extra ist ein eigener kleiner Schritt:
 3. **„Run“**. Unten muss „Success“ stehen.
 4. Kontrolle: links **„Table Editor“** → die neuen Tabellen sind sichtbar.
 
-### Anleitung G: Zeitplaner (Supabase Cron) einschalten (Phase 4)
-1. Im Supabase-Projekt links **„Integrations“** → **„Cron“** → aktivieren (falls nötig, zusätzlich die Erweiterung **„pg_net“** aktivieren; ich sage dir Bescheid).
-2. Ich gebe dir ein fertiges SQL-Schnipsel mit einem Platzhalter `<CRON_SECRET>`.
-3. Im **SQL Editor** einfügen, **dort** den Platzhalter durch dein echtes `CRON_SECRET` ersetzen (nicht im Repo, nicht im Chat) → **„Run“**.
-4. Kontrolle: **„Integrations“ → „Cron“ → „Jobs“** zeigt den Job mit „every 15 minutes“. Unter „History“ siehst du die Läufe.
+### Anleitung G: Geheimwort für den Zeitplaner im Supabase-Tresor ablegen (Phase 4)
+Den Zeitplaner selbst hat Claude schon eingerichtet. Er braucht nur noch das Geheimwort.
+1. https://supabase.com/dashboard → Projekt **youtube-dashboard** öffnen.
+2. Links **„Integrations“** → **„Vault“** (falls nicht sichtbar: oben in der Suche „Vault“ eingeben).
+3. Reiter **„Secrets“** → **„Add new secret“**.
+4. **Name:** `cron_secret` (genau so, klein geschrieben).
+   **Secret:** denselben Wert wie `CRON_SECRET` in Vercel.
+   Beschreibung optional, z. B. „Zeitplaner Dashboard“.
+5. **„Save“**.
+6. Kontrolle: Nach der nächsten Viertelstunde steht in **Table Editor → `snapshot_runs`** ein neuer Lauf mit `trigger = cron`. Claude kann das auch für dich prüfen.
+
+Falls du das `CRON_SECRET` nicht mehr hast: Erzeuge ein neues (Anleitung K), trage es in Vercel ein (dann Redeploy) und hier im Tresor.
 
 ### Anleitung H: Pull Request mergen (Phase 4 und später)
 1. Ich schicke dir den Link zum Pull Request.

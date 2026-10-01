@@ -24,9 +24,19 @@ export function Dashboard({ initialData }: { initialData: DashboardData }) {
               <p className="f1-heading text-[11px] text-live">YouTube Shorts</p>
               <h1 className="f1-heading text-2xl text-ink sm:text-3xl">Live Timing</h1>
             </div>
-            <p className="text-xs text-muted">
-              {initialData.channels.map((c) => c.channel.name).join(" vs. ")}
-            </p>
+            <div className="flex items-center gap-4">
+              <p className="text-xs text-muted">
+                {initialData.channels.map((c) => c.channel.name).join(" vs. ")}
+              </p>
+              <form method="post" action="/api/auth/logout">
+                <button
+                  type="submit"
+                  className="rounded-lg border border-line px-2.5 py-1 text-xs text-muted transition hover:border-line-strong hover:text-ink-2"
+                >
+                  Abmelden
+                </button>
+              </form>
+            </div>
           </header>
 
           <main className="grid grid-cols-12 gap-4 lg:gap-5">

@@ -1,3 +1,4 @@
+import { isAuthenticated } from "@/lib/auth/server";
 import { getDataSource } from "@/lib/data";
 
 /**
@@ -7,6 +8,9 @@ import { getDataSource } from "@/lib/data";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  if (!(await isAuthenticated())) {
+    return Response.json({ error: "Bitte anmelden." }, { status: 401 });
+  }
   try {
     const data = await getDataSource().getDashboard();
     return Response.json(data, { headers: { "Cache-Control": "no-store" } });

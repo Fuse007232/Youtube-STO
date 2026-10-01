@@ -58,6 +58,7 @@ export class SupabaseStore implements SnapshotStore, DashboardReader {
         subscribers: r.subscribers,
         views: r.views,
         video_count: r.videoCount,
+        video_views: r.videoViews,
       })),
       { ignoreDuplicates: true },
     );
@@ -195,7 +196,7 @@ export class SupabaseStore implements SnapshotStore, DashboardReader {
     for (let from = 0; ; from += PAGE) {
       const { data, error } = await this.db
         .from("channel_snapshots")
-        .select("taken_at, subscribers, views, video_count")
+        .select("taken_at, subscribers, views, video_count, video_views")
         .eq("channel_id", channelId)
         .gte("taken_at", iso(since))
         .order("taken_at", { ascending: true })
@@ -205,7 +206,8 @@ export class SupabaseStore implements SnapshotStore, DashboardReader {
         out.push({
           t: Date.parse(r.taken_at),
           subscribers: Number(r.subscribers),
-          views: Number(r.views),
+          // Summe der Short-Aufrufe bevorzugen (aktueller als die Kanalstatistik).
+          views: Number(r.video_views ?? r.views),
           videoCount: Number(r.video_count),
         });
       }

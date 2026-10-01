@@ -1,6 +1,6 @@
 # Projektplan: YouTube-Shorts-Dashboard
 
-> Stand: Phase 3 gebaut (Datenbank + Schnappschüsse + 24h-Duell). Wartet auf die Supabase-Schlüssel in Vercel.
+> Stand: Phase 3 fertig (Datenbank sammelt Schnappschüsse, Dashboard liest daraus). Nächste Phase: 4 (Zeitplaner alle 15 Min. + Schutz).
 > Dieses Dokument wird nach jeder Phase aktualisiert (Status-Tabelle unten).
 
 ---
@@ -27,7 +27,7 @@ YouTube hat keine Echtzeit-Schnittstelle. Deshalb holt ein Hintergrund-Job alle 
 | 0 | Planung (dieses Dokument) | ✅ fertig |
 | 1 | Grundgerüst + Dashboard mit Beispieldaten | ✅ fertig (Design abgenommen) |
 | 2 | Echte Zahlen über die YouTube Data API | ✅ fertig (Zahlen geprüft) |
-| 3 | Supabase-Datenbank, Schnappschüsse, 24h-Duell | ✅ gebaut, wartet auf Schlüssel in Vercel |
+| 3 | Supabase-Datenbank, Schnappschüsse, 24h-Duell | ✅ fertig (erste Schnappschüsse am 01.10.2026 ab 18:50) |
 | 4 | Veröffentlichung auf Vercel (inkl. Passwortschutz und Zeitplaner) | ⏳ offen |
 | 5 | OAuth-Login + YouTube Analytics API | ⏳ offen |
 | 6 | Extras (Alarm, beste Upload-Zeit, Konkurrenz) | ⏳ offen |
@@ -249,7 +249,9 @@ Geschätzter Bedarf: deutlich unter 100 MB pro Jahr.
 - Gibt es noch keinen Schnappschuss, zeigt das Dashboard solange die Zahlen direkt von YouTube.
 - Widgets beschriften ehrlich „seit X Std.“, solange noch keine 24h gemessen sind.
 - Vercel-Funktionen laufen in Frankfurt (`fra1`), nah an der Datenbank.
-- 69 Tests.
+- **Kanal-Aufrufe = Summe der Short-Aufrufe** (Migration `0002`, Spalte `channel_snapshots.video_views`): Die Gesamtaufrufe der YouTube-Kanalstatistik hinken Stunden hinterher (gemessen: ~430.000 Aufrufe bei BRV), die Aufrufe der einzelnen Shorts sind fast aktuell.
+- Echttest: voller Lauf 20 Einheiten (433 Shorts), schneller Lauf 5 Einheiten; `/api/cron/snapshot` ohne Geheimwort → 401.
+- 70 Tests.
 
 ---
 

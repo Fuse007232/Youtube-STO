@@ -20,8 +20,11 @@ export interface ChannelSnapshotRow {
   channelId: string;
   takenAt: number;
   subscribers: number;
+  /** Gesamtaufrufe laut YouTube-Kanalstatistik (hinkt oft Stunden hinterher). */
   views: number;
   videoCount: number;
+  /** Summe der Aufrufe aller Shorts – deutlich aktueller, Grundlage für Gewinne und Kurven. */
+  videoViews: number | null;
 }
 
 export interface VideoState {

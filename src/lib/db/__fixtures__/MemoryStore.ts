@@ -79,7 +79,12 @@ export class MemoryStore implements SnapshotStore, DashboardReader {
     return this.channelSnapshots
       .filter((s) => s.channelId === channelId && s.takenAt >= since)
       .sort((a, b) => a.takenAt - b.takenAt)
-      .map((s) => ({ t: s.takenAt, views: s.views, subscribers: s.subscribers, videoCount: s.videoCount }));
+      .map((s) => ({
+        t: s.takenAt,
+        views: s.videoViews ?? s.views,
+        subscribers: s.subscribers,
+        videoCount: s.videoCount,
+      }));
   }
   /** Gleiche Regeln wie die SQL-Funktion video_rankings. */
   async getVideoRankings(now: number): Promise<RankedShort[]> {

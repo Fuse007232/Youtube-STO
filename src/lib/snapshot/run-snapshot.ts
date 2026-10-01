@@ -92,19 +92,6 @@ export async function runSnapshot(opts: RunSnapshotOptions): Promise<RunSnapshot
         };
       }),
     );
-    await store.insertChannelSnapshots(
-      channels.map((c) => {
-        const s = byId.get(c.id)!.statistics ?? {};
-        return {
-          channelId: c.id,
-          takenAt: now,
-          subscribers: s.hiddenSubscriberCount ? 0 : toInt(s.subscriberCount),
-          views: toInt(s.viewCount),
-          videoCount: toInt(s.videoCount),
-        };
-      }),
-    );
-
     // 2) Welche Videos sollen aktualisiert werden?
     const states = await store.getVideoStates(channelIds);
     const stateById = new Map(states.map((s) => [s.id, s]));
@@ -161,17 +148,44 @@ export async function runSnapshot(opts: RunSnapshotOptions): Promise<RunSnapshot
 
     // 4) Beim vollen Lauf: gelöschte/privat gestellte Videos markieren
     let removed = 0;
+    const gone = new Set<string>();
     if (mode === "full") {
       const seen = new Set(playlistIdsPerChannel.flatMap((p) => p.ids));
-      const gone = states.filter((s) => !s.removed && !seen.has(s.id)).map((s) => s.id);
-      await store.markVideosRemoved(gone, now);
-      removed = gone.length;
+      states.filter((s) => !s.removed && !seen.has(s.id)).forEach((s) => gone.add(s.id));
+      await store.markVideosRemoved([...gone], now);
+      removed = gone.size;
     }
+
+    // 5) Kanalzahlen speichern – inkl. Summe der Short-Aufrufe
+    //    (neuer Stand für aktualisierte Shorts, letzter bekannter Stand für die übrigen).
+    const latestViews = new Map<string, { channelId: string; views: number }>();
+    for (const st of states) {
+      if (!st.removed && !gone.has(st.id)) latestViews.set(st.id, { channelId: st.channelId, views: st.views });
+    }
+    for (const u of upserts) latestViews.set(u.id, { channelId: u.channelId, views: u.views });
+    const videoViewsByChannel = new Map<string, number>();
+    for (const { channelId, views } of latestViews.values()) {
+      videoViewsByChannel.set(channelId, (videoViewsByChannel.get(channelId) ?? 0) + views);
+    }
+
+    await store.insertChannelSnapshots(
+      channels.map((c) => {
+        const s = byId.get(c.id)!.statistics ?? {};
+        return {
+          channelId: c.id,
+          takenAt: now,
+          subscribers: s.hiddenSubscriberCount ? 0 : toInt(s.subscriberCount),
+          views: toInt(s.viewCount),
+          videoCount: toInt(s.videoCount),
+          videoViews: videoViewsByChannel.get(c.id) ?? null,
+        };
+      }),
+    );
 
     const units = client.unitsUsed - unitsBefore;
     await store.finishRun(runId, { at: Date.now(), units, videos: upserts.length, ok: true });
 
-    // 5) Einmal am Tag verdichten
+    // 6) Einmal am Tag verdichten
     let compacted: number | null = null;
     const compactedRecently = runs.some(
       (r) => r.mode === "compact" && r.ok === true && now - r.startedAt < COMPACT_EVERY_MS,

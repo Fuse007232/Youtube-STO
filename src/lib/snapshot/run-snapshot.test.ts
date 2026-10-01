@@ -61,6 +61,24 @@ describe("runSnapshot", () => {
     }
   });
 
+  it("speichert die Summe der Short-Aufrufe je Kanal", async () => {
+    const { store, client } = setup();
+    await runSnapshot({ store, client: client(), trigger: "cron", channels: CH, now: NOW });
+    // Fixture: Short i hat (i+1)*1000 Aufrufe → GRA (30 Shorts) = 1000 * (1+…+30)
+    const gra = store.channelSnapshots.find((s) => s.channelId === GRA_ID)!;
+    expect(gra.videoViews).toBe(1000 * ((30 * 31) / 2));
+    expect(gra.views).toBe(16_300_000);
+    // Das Dashboard rechnet mit der Summe
+    const pts = await store.getChannelPoints(GRA_ID, 0);
+    expect(pts[0].views).toBe(465_000);
+
+    // Schneller Lauf: ältere Shorts behalten ihren letzten Stand, die Summe bleibt vollständig
+    const r2 = await runSnapshot({ store, client: client(), trigger: "cron", channels: CH, now: NOW + 15 * MIN });
+    expect(r2.mode).toBe("quick");
+    const brv = store.channelSnapshots.filter((s) => s.channelId === BRV_ID);
+    expect(brv[1].videoViews).toBe(brv[0].videoViews);
+  });
+
   it("nach einer Stunde wieder ein voller Lauf", () => {
     const runs = [{ id: 1, startedAt: NOW, mode: "full" as const, ok: true, units: 9 }];
     expect(chooseMode(runs, NOW + 30 * MIN)).toBe("quick");

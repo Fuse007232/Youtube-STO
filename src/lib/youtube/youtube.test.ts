@@ -105,3 +105,27 @@ describe("YouTubeDataClient", () => {
     await expect(client.listChannels([BRV_ID])).rejects.toThrow(/Schlüssel ist ungültig/);
   });
 });
+
+describe("Wiederholung bei kurzen Aussetzern", () => {
+  it("wiederholt ein einzelnes 403 „forbidden“ bzw. 5xx einmal", async () => {
+    const yt = createFakeYouTube();
+    let failures = 1;
+    const flaky = (async (input: string | URL | Request, init?: RequestInit) => {
+      if (failures-- > 0) {
+        return new Response(JSON.stringify({ error: { code: 403, message: "Forbidden", errors: [{ reason: "forbidden" }] } }), { status: 403 });
+      }
+      return yt.fetchFn(input, init);
+    }) as typeof fetch;
+    const client = new YouTubeDataClient("test-key", flaky, 0);
+    const channels = await client.listChannels([BRV_ID]);
+    expect(channels).toHaveLength(1);
+    expect(client.unitsUsed).toBe(2);
+  });
+
+  it("wiederholt dauerhafte Fehler (z. B. Kontingent) nicht", async () => {
+    const yt = createFakeYouTube({ error: { status: 403, reason: "quotaExceeded", message: "quota" } });
+    const client = new YouTubeDataClient("test-key", yt.fetchFn, 0);
+    await expect(client.listChannels([BRV_ID])).rejects.toThrow();
+    expect(yt.calls).toHaveLength(1);
+  });
+});

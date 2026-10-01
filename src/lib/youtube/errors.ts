@@ -24,8 +24,9 @@ export function explainYouTubeError(status: number, reason: string, apiMessage: 
     case "accessNotConfigured":
     case "SERVICE_DISABLED":
       return "Die „YouTube Data API v3“ ist im Google-Cloud-Projekt noch nicht aktiviert (APIs & Dienste → Bibliothek).";
-    case "API_KEY_SERVICE_BLOCKED":
     case "forbidden":
+      return "YouTube hat einen Abruf verweigert (403). Meist ein kurzer Aussetzer bei Google – der nächste Lauf klappt in der Regel wieder. Hält es an: Schlüssel-Einschränkungen prüfen.";
+    case "API_KEY_SERVICE_BLOCKED":
       return "Der API-Schlüssel darf die YouTube Data API nicht nutzen. Bitte bei den Schlüssel-Einschränkungen „YouTube Data API v3“ erlauben.";
   }
   return `YouTube-API-Fehler ${status}${reason ? ` (${reason})` : ""}: ${apiMessage}`;

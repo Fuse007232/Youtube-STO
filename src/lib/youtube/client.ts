@@ -34,11 +34,28 @@ export class YouTubeDataClient {
   constructor(
     private readonly apiKey: string,
     private readonly fetchFn: FetchFn = fetch,
+    /** Wartezeit vor der einen Wiederholung (Tests: 0). */
+    private readonly retryDelayMs = 1000,
   ) {
     if (!apiKey) throw new Error("YOUTUBE_API_KEY fehlt");
   }
 
+  /**
+   * Wie `request`, aber bei kurzen Aussetzern von Google (5xx oder ein einzelnes
+   * 403 „forbidden“) einmal nach 1 Sek. wiederholt – kostet höchstens 1 Einheit mehr.
+   */
   private async get<T>(endpoint: string, params: Record<string, string>): Promise<T> {
+    try {
+      return await this.request<T>(endpoint, params);
+    } catch (e) {
+      const transient = e instanceof YouTubeApiError && (e.status >= 500 || (e.status === 403 && e.reason === "forbidden"));
+      if (!transient) throw e;
+      await new Promise((r) => setTimeout(r, this.retryDelayMs));
+      return this.request<T>(endpoint, params);
+    }
+  }
+
+  private async request<T>(endpoint: string, params: Record<string, string>): Promise<T> {
     const url = new URL(`${API_BASE}/${endpoint}`);
     for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
     url.searchParams.set("key", this.apiKey);

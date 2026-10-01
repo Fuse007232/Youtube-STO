@@ -114,3 +114,27 @@ export function noHistoryHint(source: "mock" | "youtube" | "database"): string {
     ? "ab dem nächsten Schnappschuss"
     : "sobald die Datenbank Schnappschüsse sammelt";
 }
+
+const percentFormat = new Intl.NumberFormat("de-DE", { style: "percent", maximumFractionDigits: 0 });
+const oneDecimalPlain = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 });
+
+/** 0.86 → „86 %“ */
+export function formatShare(share: number): string {
+  return percentFormat.format(share);
+}
+
+/** 78.4 → „78 %“ (Wert ist schon in Prozent) */
+export function formatPercentValue(pct: number): string {
+  return `${Math.round(pct)} %`;
+}
+
+/** 2.345 → „2,3“ */
+export function formatOneDecimal(n: number): string {
+  return oneDecimalPlain.format(n);
+}
+
+/** „2026-09-30“ → „30.09.“ */
+export function formatIsoDayShort(day: string): string {
+  const [, m, d] = day.split("-");
+  return `${d}.${m}.`;
+}

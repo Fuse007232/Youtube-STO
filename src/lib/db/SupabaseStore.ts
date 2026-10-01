@@ -1,7 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { ChannelPoint, RankedShort } from "@/lib/data/types";
+import type { AnalyticsDay, ChannelPoint, RankedShort } from "@/lib/data/types";
 import type {
+  AnalyticsDayRow,
+  AnalyticsStore,
+  AnalyticsVideoRow,
+  BreakdownKind,
+  BreakdownRow,
   ChannelRow,
+  OAuthConnectionRow,
   ChannelSnapshotRow,
   DashboardReader,
   RunFinish,
@@ -30,7 +36,7 @@ async function inBatches<T>(rows: T[], fn: (batch: T[]) => Promise<void>): Promi
   for (let i = 0; i < rows.length; i += WRITE_BATCH) await fn(rows.slice(i, i + WRITE_BATCH));
 }
 
-export class SupabaseStore implements SnapshotStore, DashboardReader {
+export class SupabaseStore implements SnapshotStore, DashboardReader, AnalyticsStore {
   constructor(private readonly db: SupabaseClient) {}
 
   // ───────────── Schreiben ─────────────
@@ -241,5 +247,182 @@ export class SupabaseStore implements SnapshotStore, DashboardReader {
       if (!data || data.length < PAGE) break;
     }
     return out;
+  }
+
+  // ───────────── Analytics (Phase 5) ─────────────
+
+  async getConnections(): Promise<OAuthConnectionRow[]> {
+    const { data, error } = await this.db
+      .from("oauth_connections")
+      .select("channel_id, refresh_token_enc, scopes, connected_at, last_used_at, last_error");
+    check(error, "Verbindungen lesen");
+    return (data ?? []).map((r) => ({
+      channelId: r.channel_id,
+      refreshTokenEnc: r.refresh_token_enc,
+      scopes: r.scopes,
+      connectedAt: Date.parse(r.connected_at),
+      lastUsedAt: ms(r.last_used_at),
+      lastError: r.last_error,
+    }));
+  }
+
+  async saveConnection(row: { channelId: string; refreshTokenEnc: string; scopes: string }) {
+    const { error } = await this.db.from("oauth_connections").upsert({
+      channel_id: row.channelId,
+      refresh_token_enc: row.refreshTokenEnc,
+      scopes: row.scopes,
+      connected_at: new Date().toISOString(),
+      last_error: null,
+    });
+    check(error, "Verbindung speichern");
+  }
+
+  async deleteConnection(channelId: string) {
+    const { error } = await this.db.from("oauth_connections").delete().eq("channel_id", channelId);
+    check(error, "Verbindung löschen");
+  }
+
+  async updateConnectionStatus(channelId: string, status: { lastUsedAt?: number; lastError: string | null }) {
+    const patch: Record<string, unknown> = { last_error: status.lastError };
+    if (status.lastUsedAt) patch.last_used_at = iso(status.lastUsedAt);
+    const { error } = await this.db.from("oauth_connections").update(patch).eq("channel_id", channelId);
+    check(error, "Verbindungsstatus speichern");
+  }
+
+  async upsertAnalyticsDaily(channelId: string, rows: AnalyticsDay[]) {
+    if (rows.length === 0) return;
+    const { error } = await this.db.from("analytics_daily").upsert(
+      rows.map((r) => ({
+        channel_id: channelId,
+        day: r.day,
+        views: r.views,
+        engaged_views: r.engagedViews,
+        minutes_watched: r.minutesWatched,
+        avg_view_sec: r.avgViewSec,
+        avg_view_pct: r.avgViewPct,
+        subs_gained: r.subsGained,
+        subs_lost: r.subsLost,
+        likes: r.likes,
+        shares: r.shares,
+        comments: r.comments,
+        fetched_at: new Date().toISOString(),
+      })),
+    );
+    check(error, "Analytics-Tage speichern");
+  }
+
+  async replaceAnalyticsVideos(channelId: string, period: string, endDate: string, rows: AnalyticsVideoRow[]) {
+    const del = await this.db.from("analytics_videos").delete().eq("channel_id", channelId).eq("period", period);
+    check(del.error, "Analytics-Shorts leeren");
+    await inBatches(rows, async (batch) => {
+      const { error } = await this.db.from("analytics_videos").upsert(
+        batch.map((r) => ({
+          video_id: r.videoId,
+          channel_id: channelId,
+          period,
+          end_date: endDate,
+          views: r.views,
+          minutes_watched: r.minutesWatched,
+          avg_view_sec: r.avgViewSec,
+          avg_view_pct: r.avgViewPct,
+          subs_gained: r.subsGained,
+          likes: r.likes,
+          shares: r.shares,
+        })),
+      );
+      check(error, "Analytics-Shorts speichern");
+    });
+  }
+
+  async replaceBreakdowns(
+    channelId: string,
+    kind: BreakdownKind,
+    period: string,
+    endDate: string,
+    rows: { key: string; views: number; minutesWatched: number }[],
+  ) {
+    const del = await this.db
+      .from("analytics_breakdowns")
+      .delete()
+      .eq("channel_id", channelId)
+      .eq("kind", kind)
+      .eq("period", period);
+    check(del.error, "Aufschlüsselung leeren");
+    if (rows.length === 0) return;
+    const { error } = await this.db.from("analytics_breakdowns").upsert(
+      rows.map((r) => ({
+        channel_id: channelId,
+        kind,
+        key: r.key,
+        period,
+        end_date: endDate,
+        views: r.views,
+        minutes_watched: r.minutesWatched,
+      })),
+    );
+    check(error, "Aufschlüsselung speichern");
+  }
+
+  async getAnalyticsDaily(channelIds: string[], sinceDay: string): Promise<AnalyticsDayRow[]> {
+    const { data, error } = await this.db
+      .from("analytics_daily")
+      .select("*")
+      .in("channel_id", channelIds)
+      .gte("day", sinceDay)
+      .order("day", { ascending: true })
+      .limit(PAGE);
+    check(error, "Analytics-Tage lesen");
+    return (data ?? []).map((r) => ({
+      channelId: r.channel_id,
+      day: r.day,
+      views: Number(r.views),
+      engagedViews: r.engaged_views === null ? null : Number(r.engaged_views),
+      minutesWatched: Number(r.minutes_watched),
+      avgViewSec: Number(r.avg_view_sec),
+      avgViewPct: Number(r.avg_view_pct),
+      subsGained: Number(r.subs_gained),
+      subsLost: Number(r.subs_lost),
+      likes: Number(r.likes),
+      shares: Number(r.shares),
+      comments: Number(r.comments),
+    }));
+  }
+
+  async getAnalyticsVideos(channelIds: string[], period: string): Promise<AnalyticsVideoRow[]> {
+    const { data, error } = await this.db
+      .from("analytics_videos")
+      .select("*")
+      .in("channel_id", channelIds)
+      .eq("period", period)
+      .limit(PAGE);
+    check(error, "Analytics-Shorts lesen");
+    return (data ?? []).map((r) => ({
+      videoId: r.video_id,
+      channelId: r.channel_id,
+      views: Number(r.views),
+      minutesWatched: Number(r.minutes_watched),
+      avgViewSec: Number(r.avg_view_sec),
+      avgViewPct: Number(r.avg_view_pct),
+      subsGained: Number(r.subs_gained),
+      likes: Number(r.likes),
+      shares: Number(r.shares),
+    }));
+  }
+
+  async getBreakdowns(channelIds: string[], period: string): Promise<BreakdownRow[]> {
+    const { data, error } = await this.db
+      .from("analytics_breakdowns")
+      .select("channel_id, kind, key, views, minutes_watched")
+      .in("channel_id", channelIds)
+      .eq("period", period)
+      .limit(PAGE);
+    check(error, "Aufschlüsselungen lesen");
+    return (data ?? []).map((r) => ({
+      channelId: r.channel_id,
+      kind: r.kind,
+      key: r.key,
+      views: Number(r.views),
+      minutesWatched: Number(r.minutes_watched),
+    }));
   }
 }

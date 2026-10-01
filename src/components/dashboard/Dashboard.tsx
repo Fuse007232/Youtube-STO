@@ -28,6 +28,12 @@ export function Dashboard({ initialData }: { initialData: DashboardData }) {
               <p className="text-xs text-muted">
                 {initialData.channels.map((c) => c.channel.name).join(" vs. ")}
               </p>
+              <a
+                href="/settings"
+                className="rounded-lg border border-line px-2.5 py-1 text-xs text-muted transition hover:border-line-strong hover:text-ink-2"
+              >
+                Einstellungen
+              </a>
               <form method="post" action="/api/auth/logout">
                 <button
                   type="submit"

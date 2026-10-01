@@ -1,6 +1,12 @@
-import type { ChannelPoint, RankedShort } from "@/lib/data/types";
+import type { AnalyticsDay, ChannelPoint, RankedShort } from "@/lib/data/types";
 import type {
+  AnalyticsDayRow,
+  AnalyticsStore,
+  AnalyticsVideoRow,
+  BreakdownKind,
+  BreakdownRow,
   ChannelRow,
+  OAuthConnectionRow,
   ChannelSnapshotRow,
   DashboardReader,
   RunFinish,
@@ -16,13 +22,17 @@ import type {
 const DAY = 24 * 3_600_000;
 
 /** Datenbank im Arbeitsspeicher – nur für Tests. Bildet die SQL-Logik nach. */
-export class MemoryStore implements SnapshotStore, DashboardReader {
+export class MemoryStore implements SnapshotStore, DashboardReader, AnalyticsStore {
   channels = new Map<string, ChannelRow>();
   channelSnapshots: ChannelSnapshotRow[] = [];
   videos = new Map<string, VideoUpsert & { statsAt: number; removedAt: number | null }>();
   videoSnapshots: VideoSnapshotRow[] = [];
   runs: (RunRow & { trigger: RunTrigger; finish?: RunFinish })[] = [];
   compactCalls = 0;
+  connections = new Map<string, OAuthConnectionRow>();
+  analyticsDaily = new Map<string, AnalyticsDayRow>();
+  analyticsVideos: (AnalyticsVideoRow & { period: string })[] = [];
+  breakdowns: (BreakdownRow & { period: string })[] = [];
 
   async upsertChannels(rows: ChannelRow[]) {
     rows.forEach((r) => this.channels.set(r.id, r));
@@ -113,5 +123,50 @@ export class MemoryStore implements SnapshotStore, DashboardReader {
           views7d: Math.max(0, v.views - base(7 * DAY)),
         };
       });
+  }
+
+  // ───────────── Analytics ─────────────
+  async getConnections() {
+    return [...this.connections.values()];
+  }
+  async saveConnection(row: { channelId: string; refreshTokenEnc: string; scopes: string }) {
+    this.connections.set(row.channelId, { ...row, connectedAt: Date.now(), lastUsedAt: null, lastError: null });
+  }
+  async deleteConnection(channelId: string) {
+    this.connections.delete(channelId);
+  }
+  async updateConnectionStatus(channelId: string, status: { lastUsedAt?: number; lastError: string | null }) {
+    const c = this.connections.get(channelId);
+    if (!c) return;
+    c.lastError = status.lastError;
+    if (status.lastUsedAt) c.lastUsedAt = status.lastUsedAt;
+  }
+  async upsertAnalyticsDaily(channelId: string, rows: AnalyticsDay[]) {
+    rows.forEach((r) => this.analyticsDaily.set(`${channelId}:${r.day}`, { ...r, channelId }));
+  }
+  async replaceAnalyticsVideos(channelId: string, period: string, _endDate: string, rows: AnalyticsVideoRow[]) {
+    this.analyticsVideos = this.analyticsVideos.filter((v) => !(v.channelId === channelId && v.period === period));
+    this.analyticsVideos.push(...rows.map((r) => ({ ...r, period })));
+  }
+  async replaceBreakdowns(
+    channelId: string,
+    kind: BreakdownKind,
+    period: string,
+    _endDate: string,
+    rows: { key: string; views: number; minutesWatched: number }[],
+  ) {
+    this.breakdowns = this.breakdowns.filter((b) => !(b.channelId === channelId && b.kind === kind && b.period === period));
+    this.breakdowns.push(...rows.map((r) => ({ ...r, channelId, kind, period })));
+  }
+  async getAnalyticsDaily(channelIds: string[], sinceDay: string) {
+    return [...this.analyticsDaily.values()]
+      .filter((d) => channelIds.includes(d.channelId) && d.day >= sinceDay)
+      .sort((a, b) => a.day.localeCompare(b.day));
+  }
+  async getAnalyticsVideos(channelIds: string[], period: string) {
+    return this.analyticsVideos.filter((v) => channelIds.includes(v.channelId) && v.period === period);
+  }
+  async getBreakdowns(channelIds: string[], period: string) {
+    return this.breakdowns.filter((b) => channelIds.includes(b.channelId) && b.period === period);
   }
 }

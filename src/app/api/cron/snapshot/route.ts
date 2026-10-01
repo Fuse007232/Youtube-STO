@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { SupabaseStore } from "@/lib/db/SupabaseStore";
 import { getSupabase } from "@/lib/db/supabase";
+import { runAnalyticsIfDue } from "@/lib/analytics/run-analytics";
 import { runSnapshot } from "@/lib/snapshot/run-snapshot";
 import { YouTubeDataClient } from "@/lib/youtube/client";
 
@@ -39,13 +40,22 @@ async function handle(req: Request): Promise<Response> {
   const trigger = req.headers.get("x-snapshot-trigger") === "manual" ? "manual" : "cron";
 
   try {
+    const store = new SupabaseStore(getSupabase());
     const result = await runSnapshot({
-      store: new SupabaseStore(getSupabase()),
+      store,
       client: new YouTubeDataClient(key),
       trigger,
       mode,
     });
-    return Response.json(result, { headers: { "Cache-Control": "no-store" } });
+    // Danach (höchstens alle 6 Std.) YouTube Analytics der verbundenen Kanäle holen.
+    let analytics: unknown = null;
+    try {
+      analytics = await runAnalyticsIfDue({ store, trigger });
+    } catch (e) {
+      console.error("[cron/analytics]", e);
+      analytics = { error: e instanceof Error ? e.message : String(e) };
+    }
+    return Response.json({ ...result, analytics }, { headers: { "Cache-Control": "no-store" } });
   } catch (e) {
     console.error("[cron/snapshot]", e);
     return Response.json(

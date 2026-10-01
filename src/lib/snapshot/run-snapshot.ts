@@ -233,6 +233,6 @@ export async function runSnapshotIfDue(
 ): Promise<RunSnapshotResult | null> {
   const now = opts.now ?? Date.now();
   const runs = await opts.store.recentRuns(now - MIN_RUN_GAP_MS);
-  if (runs.some((r) => r.mode !== "compact")) return null;
+  if (runs.some((r) => r.mode === "quick" || r.mode === "full")) return null;
   return runSnapshot(opts);
 }

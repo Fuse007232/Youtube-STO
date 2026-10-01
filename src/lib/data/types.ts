@@ -66,6 +66,80 @@ export interface RankedShort {
   likes: number;
 }
 
+/** Ein Tag YouTube Analytics (exakte Werte, 1–2 Tage Verzögerung). */
+export interface AnalyticsDay {
+  day: string; // YYYY-MM-DD (pazifische Zeit)
+  views: number;
+  /** Shorts-Aufrufe ohne Wiederholungen (null, falls YouTube die Kennzahl nicht liefert). */
+  engagedViews: number | null;
+  minutesWatched: number;
+  avgViewSec: number;
+  avgViewPct: number;
+  subsGained: number;
+  subsLost: number;
+  likes: number;
+  shares: number;
+  comments: number;
+}
+
+export interface AnalyticsTotals {
+  days: number;
+  views: number;
+  engagedViews: number | null;
+  minutesWatched: number;
+  avgViewSec: number;
+  avgViewPct: number;
+  subsGained: number;
+  subsLost: number;
+  subsNet: number;
+  likes: number;
+  shares: number;
+  comments: number;
+}
+
+/** Ein Short mit Analytics-Werten der letzten 28 Tage. */
+export interface AnalyticsShort {
+  id: string;
+  title: string;
+  thumbnailUrl: string | null;
+  publishedAt: number | null;
+  views: number;
+  minutesWatched: number;
+  avgViewSec: number;
+  avgViewPct: number;
+  subsGained: number;
+  /** Neue Abos pro 1.000 Aufrufe. */
+  subsPer1k: number;
+  likes: number;
+  shares: number;
+}
+
+export interface BreakdownItem {
+  key: string;
+  label: string;
+  views: number;
+  /** Anteil 0…1 */
+  share: number;
+}
+
+export interface ChannelAnalytics {
+  channelId: string;
+  /** Kanal ist per Google-Login verbunden. */
+  connected: boolean;
+  /** Letzter Fehler (z. B. „Erlaubnis abgelaufen“). */
+  error: string | null;
+  /** Neuester Tag mit Daten (YYYY-MM-DD). */
+  lastDay: string | null;
+  /** Tageswerte, aufsteigend (bis zu 35 Tage). */
+  daily: AnalyticsDay[];
+  /** Summen/Mittelwerte der letzten 28 Tage mit Daten. */
+  totals28d: AnalyticsTotals | null;
+  /** Shorts der letzten 28 Tage (nach neuen Abos sortiert). */
+  shorts: AnalyticsShort[];
+  traffic: BreakdownItem[];
+  countries: BreakdownItem[];
+}
+
 export interface DashboardData {
   source: DataSourceKind;
   /** true = Beispieldaten, nicht echt. */
@@ -93,6 +167,11 @@ export interface DashboardData {
    */
   topShorts: Record<RankingPeriod, RankedShort[]>;
   quota: { usedToday: number | null; dailyLimit: number };
+  /**
+   * YouTube Analytics je Kanal (Phase 5). null = diese Datenquelle hat keine
+   * Analytics (z. B. YouTube direkt) → Analytics-Widgets blenden sich aus.
+   */
+  analytics: ChannelAnalytics[] | null;
 }
 
 /** Jede Datenquelle muss diese eine Funktion anbieten. */

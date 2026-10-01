@@ -1,7 +1,10 @@
 import type { WidgetDefinition } from "./types";
+import analyticsOverview from "./analytics-overview";
+import audienceOrigin from "./audience-origin";
 import channelOverview from "./channel-overview";
 import duelTower from "./duel-tower";
 import statusBar from "./status-bar";
+import subsPerShort from "./subs-per-short";
 import topShorts from "./top-shorts";
 import trendChart from "./trend-chart";
 
@@ -16,4 +19,8 @@ export const WIDGETS: WidgetDefinition[] = [
   duelTower,
   trendChart,
   topShorts,
+  // Phase 5: YouTube Analytics (blenden sich aus, wenn die Datenquelle keine Analytics hat)
+  analyticsOverview,
+  subsPerShort,
+  audienceOrigin,
 ];

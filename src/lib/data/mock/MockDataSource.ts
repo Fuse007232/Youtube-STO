@@ -5,6 +5,7 @@ import type { ChannelPoint, DataSource, RankedShort } from "@/lib/data/types";
 import { HOUR_MS } from "@/lib/metrics/deltas";
 import { roundSubscribersLikeYouTube } from "@/lib/metrics/rounding";
 import { createRandom, gaussian, hashString } from "./random";
+import { mockAnalytics } from "./mock-analytics";
 import { makeTitle } from "./titles";
 
 /**
@@ -210,14 +211,16 @@ export class MockDataSource implements DataSource {
       };
     }
 
+    const shorts = cache.sims.flatMap((s) => s.shorts);
     return buildDashboard({
       source: this.kind,
       isDemo: true,
       hasHistory: true,
       now,
       channels: cache.sims.map((s) => s.raw),
-      shorts: cache.sims.flatMap((s) => s.shorts),
+      shorts,
       quotaUsedToday: null,
+      analytics: CHANNELS.map((c) => mockAnalytics(c, shorts, lastSnapshotAt)),
     });
   }
 }

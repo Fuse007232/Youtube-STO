@@ -1,7 +1,10 @@
 import { CHANNELS, type ChannelConfig } from "@/config/channels";
 import { buildDashboard } from "@/lib/data/build-dashboard";
 import type { DashboardData, DataSource } from "@/lib/data/types";
-import type { DashboardReader } from "@/lib/db/store";
+import type { AnalyticsStore, DashboardReader } from "@/lib/db/store";
+import { buildChannelAnalytics } from "@/lib/analytics/build";
+import { ANALYTICS_PERIOD } from "@/lib/analytics/run-analytics";
+import type { ChannelAnalytics, RankedShort } from "@/lib/data/types";
 import { HOUR_MS } from "@/lib/metrics/deltas";
 import { quotaDayKey } from "@/lib/youtube/quota";
 import { APP_CONFIG } from "@/config/app";
@@ -25,6 +28,8 @@ export interface DatabaseSourceOptions {
   onStale?: () => void;
   /** Datenquelle für den Fall „noch keine Schnappschüsse“. */
   fallback?: DataSource;
+  /** Analytics lesen (Phase 5). Fehlt es, gibt es keine Analytics-Widgets. */
+  analytics?: Pick<AnalyticsStore, "getConnections" | "getAnalyticsDaily" | "getAnalyticsVideos" | "getBreakdowns">;
 }
 
 export class DatabaseDataSource implements DataSource {
@@ -63,6 +68,10 @@ export class DatabaseDataSource implements DataSource {
       .filter((r) => quotaDayKey(r.startedAt) === today)
       .reduce((sum, r) => sum + r.units, 0);
 
+    const analytics = this.opts.analytics
+      ? await this.loadAnalytics(ids, rankings, now)
+      : null;
+
     return buildDashboard({
       source: this.kind,
       isDemo: false,
@@ -76,6 +85,35 @@ export class DatabaseDataSource implements DataSource {
       })),
       shorts: rankings.filter((s) => ids.includes(s.channelId)),
       quotaUsedToday,
+      analytics,
     });
+  }
+
+  /** Analytics je Kanal laden. Fehler hier legen nicht das ganze Dashboard lahm. */
+  private async loadAnalytics(ids: string[], rankings: RankedShort[], now: number): Promise<ChannelAnalytics[] | null> {
+    const reader = this.opts.analytics!;
+    try {
+      const since = new Date(now - 40 * 24 * HOUR_MS).toISOString().slice(0, 10);
+      const [connections, daily, videos, breakdowns] = await Promise.all([
+        reader.getConnections(),
+        reader.getAnalyticsDaily(ids, since),
+        reader.getAnalyticsVideos(ids, ANALYTICS_PERIOD),
+        reader.getBreakdowns(ids, ANALYTICS_PERIOD),
+      ]);
+      const videoInfo = new Map(rankings.map((r) => [r.id, r]));
+      return ids.map((channelId) =>
+        buildChannelAnalytics({
+          channelId,
+          connection: connections.find((c) => c.channelId === channelId),
+          daily: daily.filter((d) => d.channelId === channelId),
+          videos,
+          breakdowns,
+          videoInfo,
+        }),
+      );
+    } catch (e) {
+      console.error("[analytics] Lesen fehlgeschlagen:", e);
+      return null;
+    }
   }
 }

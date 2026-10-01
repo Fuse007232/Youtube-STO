@@ -1,6 +1,6 @@
 # Projektplan: YouTube-Shorts-Dashboard
 
-> Stand: Phase 4 fertig (Login aktiv, Zeitplaner läuft seit 01.10.2026 19:15 Uhr). Nächste Phase: 5 (OAuth + YouTube Analytics).
+> Stand: Phase 5 gebaut (Google-Login + YouTube Analytics). Wartet auf Google-Zugangsdaten in Vercel und das Verbinden beider Kanäle.
 > Dieses Dokument wird nach jeder Phase aktualisiert (Status-Tabelle unten).
 
 ---
@@ -29,7 +29,7 @@ YouTube hat keine Echtzeit-Schnittstelle. Deshalb holt ein Hintergrund-Job alle 
 | 2 | Echte Zahlen über die YouTube Data API | ✅ fertig (Zahlen geprüft) |
 | 3 | Supabase-Datenbank, Schnappschüsse, 24h-Duell | ✅ fertig (erste Schnappschüsse am 01.10.2026 ab 18:50) |
 | 4 | Veröffentlichung auf Vercel (inkl. Passwortschutz und Zeitplaner) | ✅ fertig (Login aktiv, Cron seit 01.10. 19:15) |
-| 5 | OAuth-Login + YouTube Analytics API | ⏳ offen |
+| 5 | OAuth-Login + YouTube Analytics API | ✅ gebaut, wartet auf Google-Einrichtung + Verbinden |
 | 6 | Extras (Alarm, beste Upload-Zeit, Konkurrenz) | ⏳ offen |
 
 ---
@@ -287,9 +287,9 @@ Geschätzter Bedarf: deutlich unter 100 MB pro Jahr.
 **Arbeitsschritte (mache ich):**
 1. Einstellungsseite „Kanäle verbinden“: pro Kanal ein Knopf „Mit YouTube verbinden“.
 2. OAuth-Ablauf (Fachwort für: „Google fragt dich, ob die App deine Kanal-Statistiken lesen darf“). Das Refresh-Token (eine Art Dauer-Erlaubnis) wird **verschlüsselt** in `oauth_connections` gespeichert.
-3. Täglicher Analytics-Abruf (holt immer die letzten 3 Tage, wegen der Verzögerung).
-4. Neue Widgets: Zuschauerbindung, Abo-Gewinn pro Short, Watchtime, Herkunft.
-5. Duell zeigt zusätzlich exakte Abo-Gewinne (markiert als „Stand vorgestern“).
+3. Analytics-Abruf über den Zeitplaner höchstens alle 6 Std. (holt immer 35 Tage neu, wegen der Verzögerung) und sofort nach dem Verbinden; Knopf „Analytics jetzt abrufen“ in den Einstellungen.
+4. Neue Widgets: Analytics-Übersicht (Abos netto exakt, Aufrufe, Engaged Views, Watchtime, Ø Wiedergabe, Ø angesehen + Abos pro Tag), Abo-Magneten (Abo-Gewinn pro Short, Abos/1.000 Aufrufe), Zuschauer-Herkunft (Traffic-Quellen, Länder).
+5. *Später (nicht in Phase 5 gebaut):* Duell zusätzlich mit exakten Abo-Gewinnen „Stand vorgestern“; Zuschauerbindungs-Kurve pro Short (eigene Abfrage je Video).
 
 **Wo ich dich brauche:**
 - OAuth in Google Cloud einrichten → **Anleitung I**
@@ -298,6 +298,8 @@ Geschätzter Bedarf: deutlich unter 100 MB pro Jahr.
 **Wichtig zur Cloud:** Der Google-Login braucht einen echten Browser und eine feste Rückkehr-Adresse. Das geht nicht in dieser Cloud-Session, aber problemlos über die Vercel-Adresse. Deshalb kommt Phase 5 bewusst **nach** Vercel.
 
 **Fertig, wenn:** Beide Kanäle stehen auf „verbunden“ und die Analytics-Widgets zeigen Daten von vorgestern und früher.
+
+**Technik (gebaut):** Migration `0004_analytics.sql` (`oauth_connections`, `analytics_daily`, `analytics_videos`, `analytics_breakdowns`), Refresh-Tokens AES-256-GCM-verschlüsselt (`TOKEN_ENCRYPTION_KEY`), signierter OAuth-„state“, Prüfung „richtiges Google-Konto für diesen Kanal?“, Einstellungsseite `/settings`, Routen `/api/auth/youtube/start|callback|disconnect`, `/api/analytics/refresh`. Analytics kostet kein Data-API-Kontingent. 97 Tests.
 
 ---
 
@@ -410,24 +412,22 @@ Falls du das `CRON_SECRET` nicht mehr hast: Erzeuge ein neues (Anleitung K), tra
 3. Vercel baut danach automatisch die Produktions-Version (dauert ca. 1–2 Min.).
 
 ### Anleitung I: OAuth in Google Cloud einrichten (Phase 5)
-1. https://console.cloud.google.com → Projekt `youtube-dashboard` → Menü ☰ → **„APIs & Dienste“** → **„OAuth-Zustimmungsbildschirm“** (heißt evtl. **„Google Auth Platform“**) → **„Jetzt starten“**.
-2. App-Name: `Mein YouTube Dashboard`, Support-E-Mail: deine → Zielgruppe: **„Extern“** → Kontakt-E-Mail → zustimmen → **„Erstellen“**.
-3. **„Datenzugriff“** → **„Bereiche hinzufügen“** → diese beiden suchen und anhaken:
-   - `https://www.googleapis.com/auth/yt-analytics.readonly`
-   - `https://www.googleapis.com/auth/youtube.readonly`
-   → **„Aktualisieren“** → **„Speichern“**.
-4. **„Zielgruppe“** → **„App veröffentlichen“** → bestätigen (Status: **„In Produktion“**).
-   *Warum?* Im Status „Test“ laufen die Freigaben nach **7 Tagen** ab und du müsstest dich wöchentlich neu verbinden. Eine Google-Prüfung ist für den Privatgebrauch nicht nötig. Beim Verbinden erscheint dann einmalig die Warnung „Google hat diese App nicht überprüft“, die du überspringst (siehe Anleitung J).
-5. **„Clients“** → **„+ Client erstellen“** → Typ: **„Webanwendung“** → Name: `dashboard`.
-   **Autorisierte Weiterleitungs-URIs** → `https://<deine-vercel-adresse>/api/auth/youtube/callback` (genaue Adresse sage ich dir) → **„Erstellen“**.
-6. **Client-ID** und **Clientschlüssel** kopieren → in Vercel als `GOOGLE_CLIENT_ID` und `GOOGLE_CLIENT_SECRET` eintragen → Redeploy.
+1. https://console.cloud.google.com → Projekt `youtube-dashboard` wählen.
+2. Menü ☰ → **„APIs & Dienste“** → **„Bibliothek“** → **„YouTube Analytics API“** → **„Aktivieren“** (falls noch nicht aktiv).
+3. Menü ☰ → **„APIs & Dienste“** → **„OAuth-Zustimmungsbildschirm“** (heißt evtl. **„Google Auth Platform“**) → **„Jetzt starten“**: App-Name `Mein YouTube Dashboard`, Support-E-Mail, Zielgruppe **„Extern“**, Kontakt-E-Mail → zustimmen → **„Erstellen“**.
+4. **„Datenzugriff“** → **„Bereiche hinzufügen oder entfernen“** → `.../auth/yt-analytics.readonly` und `.../auth/youtube.readonly` anhaken → **„Aktualisieren“** → **„Speichern“**.
+5. **„Zielgruppe“** → **„App veröffentlichen“** → Status **„In Produktion“** (sonst laufen Freigaben nach 7 Tagen ab).
+6. **„Clients“** → **„+ Client erstellen“** → **„Webanwendung“**, Name `dashboard`, **Autorisierte Weiterleitungs-URI:** `https://youtube-sto.vercel.app/api/auth/youtube/callback` → **„Erstellen“**.
+7. **Client-ID** und **Clientschlüssel** sofort kopieren (der Schlüssel wird evtl. nur einmal angezeigt) → in Vercel als `GOOGLE_CLIENT_ID` und `GOOGLE_CLIENT_SECRET`, dazu `TOKEN_ENCRYPTION_KEY` (Anleitung K) → Redeploy.
 
 ### Anleitung J: Beide Kanäle im Dashboard verbinden (Phase 5)
-1. Dashboard öffnen → **„Einstellungen“** → bei Kanal 1 **„Mit YouTube verbinden“**.
-2. Mit dem **Google-Konto von Bra1nrotvault** anmelden (deine Kanäle liegen in zwei verschiedenen Google-Konten, keine Brand-Konten).
-3. Warnung „Google hat diese App nicht überprüft“ → **„Erweitert“** → **„Weiter zu Mein YouTube Dashboard (unsicher)“** (es ist deine eigene App).
-4. Beide Häkchen erlauben → **„Weiter“**.
-5. Für Granny Aura wiederholen und dabei mit dem **anderen Google-Konto** anmelden („Anderes Konto verwenden“).
+1. https://youtube-sto.vercel.app → oben rechts **„Einstellungen“**.
+2. Bei **Bra1nrotvault** → **„Mit YouTube verbinden“**.
+3. Google fragt nach dem Konto → das **Google-Konto von Bra1nrotvault** wählen (ggf. „Anderes Konto verwenden“).
+4. Warnung „Google hat diese App nicht überprüft“ → **„Erweitert“** → **„Weiter zu Mein YouTube Dashboard (unsicher)“** – es ist deine eigene App.
+5. Beide Häkchen (YouTube-Analytics-Berichte ansehen, YouTube-Konto ansehen) erlauben → **„Weiter“**. Zurück im Dashboard steht „✓ verbunden“.
+6. Dasselbe für **Granny Aura** – diesmal mit dem **anderen Google-Konto**. Wählst du das falsche Konto, sagt das Dashboard es dir und speichert nichts.
+7. Nach ca. einer Minute zeigen die Analytics-Widgets die ersten Daten.
 
 ### Anleitung K: Geheimwörter erzeugen (`CRON_SECRET`, `SESSION_SECRET`, `TOKEN_ENCRYPTION_KEY`)
 Am einfachsten: Passwort-Manager → neues Passwort, **mindestens 40 Zeichen**, nur Buchstaben und Zahlen. Für jede Variable ein **eigenes**.

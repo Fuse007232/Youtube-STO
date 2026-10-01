@@ -168,6 +168,73 @@ export interface StandingsEntry {
   bestShort24h: Pick<RankedShort, "id" | "title" | "views24h" | "thumbnailUrl"> | null;
 }
 
+// ───────────── Boxenstrategie (beste Upload-Uhrzeit, Phase 6.2) ─────────────
+
+export type SampleSource = "history" | "first24h";
+
+export interface SlotStat {
+  n: number;
+  /** Geschrumpfter geometrischer Mittelwert des Index (1 = normal). */
+  score: number;
+  /** Median der Index-Werte (null bei 0 Shorts). */
+  median: number | null;
+  /** Standardfehler im log-Maßstab (null bei < 2 Shorts). */
+  se: number | null;
+  /** Ungeschrumpfter log-Mittelwert (für Vergleiche). */
+  meanLog: number;
+}
+
+export type TimingConfidence = "deutlich" | "tendenz" | "unsicher";
+
+export interface TimingRecommendation {
+  /** Bester getesteter 2-Std.-Block (0 = 0–2 Uhr … 11 = 22–24 Uhr). */
+  block: number;
+  /** Dein Standard-Block (am häufigsten genutzt). */
+  defaultBlock: number;
+  /** Anteil deiner Uploads im Standard-Block (0…1). */
+  defaultShare: number;
+  /** Vorteil gegenüber dem Standard in Prozent (0 = Standard ist schon am besten). */
+  upliftPct: number;
+  confidence: TimingConfidence;
+  /** Bester Wochentag (0 = Mo) – nur wenn er sich wirklich abhebt, sonst null. */
+  weekday: number | null;
+  weekdayUpliftPct: number | null;
+}
+
+export interface TimingExperiment {
+  block: number;
+  reason: "audience" | "competition";
+  /** Publikum: Anteil an der Spitzen-Aktivität (0…1); Konkurrenz: deren Index. */
+  value: number;
+}
+
+export interface TimingRecent {
+  videoId: string;
+  title: string;
+  publishedAt: number;
+  index: number | null;
+  source: SampleSource | null;
+}
+
+export interface TimingAnalysis {
+  /** Kanal-ID oder "competitors" (alle Konkurrenten zusammen). */
+  scope: string;
+  samples: number;
+  samplesFirst24h: number;
+  /** [Wochentag 0=Mo … 6=So][Block 0…11] */
+  cells: SlotStat[][];
+  byBlock: SlotStat[];
+  byWeekday: SlotStat[];
+  /** Ø Aufrufe pro Stunde je Tagesstunde (Berlin, 0…23); null = noch zu wenig Verlauf. */
+  activity: number[] | null;
+  /** Wie viele Stunden Aktivitäts-Daten es gibt. */
+  activityHours: number;
+  recommendation: TimingRecommendation | null;
+  experiments: TimingExperiment[];
+  recent: TimingRecent[];
+}
+
+
 export interface DashboardData {
   source: DataSourceKind;
   /** true = Beispieldaten, nicht echt. */
@@ -207,6 +274,11 @@ export interface DashboardData {
    * Ohne eingetragene Konkurrenten stehen hier nur die eigenen Kanäle.
    */
   standings: StandingsEntry[] | null;
+  /**
+   * Boxenstrategie: je eigener Kanal eine Auswertung (+ „competitors“ = alle Konkurrenten
+   * zusammen, falls eingetragen). null = Quelle ohne diese Auswertung.
+   */
+  uploadTiming: TimingAnalysis[] | null;
 }
 
 /** Jede Datenquelle muss diese eine Funktion anbieten. */

@@ -76,4 +76,19 @@ describe("DatabaseDataSource", () => {
     await source.getDashboard(NOW + 25 * MIN);
     expect(onStale).toHaveBeenCalledOnce();
   });
+
+  it("Boxenstrategie: je eigener Kanal, Rohdaten nur einmal pro Schnappschuss", async () => {
+    const store = new MemoryStore();
+    const yt = createFakeYouTube();
+    await runSnapshot({ store, client: new YouTubeDataClient("test-key", yt.fetchFn), trigger: "cron", channels: CH, now: NOW });
+    const firstDay = vi.spyOn(store, "getFirstDayViews");
+    const timingCache = {};
+    const source = new DatabaseDataSource(store, { channels: CH, timing: store, timingCache });
+    const a = await source.getDashboard(NOW + MIN);
+    await new DatabaseDataSource(store, { channels: CH, timing: store, timingCache }).getDashboard(NOW + 2 * MIN);
+    expect(firstDay).toHaveBeenCalledOnce();
+    expect(a.uploadTiming?.map((t) => t.scope)).toEqual([BRV_ID, GRA_ID]);
+    // Ohne Timing-Leser keine Auswertung
+    expect((await new DatabaseDataSource(store, { channels: CH }).getDashboard(NOW + MIN)).uploadTiming).toBeNull();
+  });
 });

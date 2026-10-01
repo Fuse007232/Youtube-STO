@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AlertCandidate, HourRateRow } from "@/lib/alerts/detect";
 import type { AlertItem, AnalyticsDay, ChannelPoint, RankedShort } from "@/lib/data/types";
+import type { FirstDayRow, HourlyActivityRow } from "@/lib/metrics/upload-timing";
 import type { ChannelConfig } from "@/config/channels";
 import type {
   AlertStore,
@@ -19,6 +20,7 @@ import type {
   RunRow,
   RunTrigger,
   SnapshotStore,
+  TimingStore,
   VideoSnapshotRow,
   VideoState,
   VideoUpsert,
@@ -40,7 +42,9 @@ async function inBatches<T>(rows: T[], fn: (batch: T[]) => Promise<void>): Promi
   for (let i = 0; i < rows.length; i += WRITE_BATCH) await fn(rows.slice(i, i + WRITE_BATCH));
 }
 
-export class SupabaseStore implements SnapshotStore, DashboardReader, AnalyticsStore, AlertStore, CompetitorStore {
+export class SupabaseStore
+  implements SnapshotStore, DashboardReader, AnalyticsStore, AlertStore, CompetitorStore, TimingStore
+{
   constructor(private readonly db: SupabaseClient) {}
 
   // ───────────── Schreiben ─────────────
@@ -548,5 +552,41 @@ export class SupabaseStore implements SnapshotStore, DashboardReader, AnalyticsS
   async removeCompetitor(id: string) {
     const { error } = await this.db.from("channels").delete().eq("id", id).eq("kind", "competitor");
     check(error, "Konkurrent entfernen");
+  }
+
+  // ───────────── Boxenstrategie (Phase 6.2) ─────────────
+
+  async getFirstDayViews(hours: number): Promise<FirstDayRow[]> {
+    const out: FirstDayRow[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await this.db
+        .rpc("video_first_day_views", { p_hours: hours })
+        .order("id")
+        .range(from, from + PAGE - 1);
+      check(error, "Startkurven lesen");
+      for (const r of (data ?? []) as Record<string, unknown>[]) {
+        const publishedAt = ms((r.published_at as string | null) ?? null);
+        if (publishedAt === null) continue;
+        out.push({
+          id: String(r.id),
+          channelId: String(r.channel_id),
+          publishedAt,
+          viewsAt: Number(r.views_at ?? 0),
+        });
+      }
+      if (!data || data.length < PAGE) break;
+    }
+    return out;
+  }
+
+  async getHourlyActivity(days: number): Promise<HourlyActivityRow[]> {
+    const { data, error } = await this.db.rpc("channel_hourly_activity", { p_days: days });
+    check(error, "Tagesrhythmus lesen");
+    return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+      channelId: String(r.channel_id),
+      hour: Number(r.hour),
+      views: Number(r.views ?? 0),
+      hours: Number(r.hours ?? 0),
+    }));
   }
 }

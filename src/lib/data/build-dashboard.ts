@@ -10,6 +10,7 @@ import {
 } from "@/lib/metrics/deltas";
 import { topShortsPerChannel } from "@/lib/metrics/ranking";
 import { channelShortStats } from "@/lib/metrics/standings";
+import { buildUploadTiming, type ActivityProfile, type FirstDayRow } from "@/lib/metrics/upload-timing";
 import type {
   AlertItem,
   ChannelAnalytics,
@@ -54,6 +55,16 @@ export interface RawDashboardInput {
    */
   rivals?: RawChannelData[];
   rivalShorts?: RankedShort[];
+  /**
+   * Rohdaten für die Boxenstrategie (beste Upload-Uhrzeit). Fehlt es, gibt es
+   * keine Auswertung (`uploadTiming: null`).
+   */
+  timing?: {
+    /** Aufrufe nach 24 Std. für alle früh genug erfassten Shorts. */
+    firstDay: FirstDayRow[];
+    /** Aktivitätsprofil je eigenem Kanal. */
+    activity: Map<string, ActivityProfile>;
+  } | null;
 }
 
 function summarize(raw: RawChannelData): ChannelSummary | null {
@@ -147,6 +158,16 @@ export function buildDashboard(input: RawDashboardInput): DashboardData {
     analytics: input.analytics ?? null,
     alerts: input.alerts ?? null,
     standings: input.rivals ? buildStandings(channels, input) : null,
+    uploadTiming: input.timing
+      ? buildUploadTiming({
+          ownChannelIds: input.channels.map((c) => c.channel.id),
+          ownShorts: input.shorts,
+          rivalShorts: input.rivalShorts ?? [],
+          firstDay: input.timing.firstDay,
+          activity: input.timing.activity,
+          now: input.now,
+        })
+      : null,
   };
 }
 

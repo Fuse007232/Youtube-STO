@@ -138,3 +138,39 @@ export function formatIsoDayShort(day: string): string {
   const [, m, d] = day.split("-");
   return `${d}.${m}.`;
 }
+
+/** Wochentage, Montag zuerst (wie in der Boxenstrategie). */
+export const WEEKDAYS_SHORT = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"] as const;
+export const WEEKDAYS_LONG = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"] as const;
+
+const indexFormat = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+/** Leistungs-Index: 1.46 → „1,5×“ */
+export function formatIndex(x: number): string {
+  return `${indexFormat.format(x)}×`;
+}
+
+/** Zeitfenster ab Stunde `start`: (12, 2) → „12–14 Uhr“ */
+export function formatHourRange(start: number, hours = 2, suffix = " Uhr"): string {
+  const s = ((start % 24) + 24) % 24;
+  return `${s}–${s + hours}${suffix}`;
+}
+
+/** Wie viele Stunden liegt `timeZone` zum Zeitpunkt `t` gegenüber Berlin? (New York: meist −6) */
+export function zoneShiftHours(timeZone: string, t: number): number {
+  const hourIn = (tz: string) => {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: tz,
+      day: "numeric",
+      hour: "numeric",
+      hourCycle: "h23",
+    }).formatToParts(t);
+    const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? 0);
+    return get("day") * 24 + get("hour");
+  };
+  let diff = hourIn(timeZone) - hourIn(APP_CONFIG.timeZone);
+  // Monatswechsel zwischen den Zonen ausgleichen
+  if (diff > 12) diff -= 24 * Math.round(diff / 24);
+  if (diff < -12) diff += 24 * Math.round(-diff / 24);
+  return diff;
+}

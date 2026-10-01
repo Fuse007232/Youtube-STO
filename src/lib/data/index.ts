@@ -5,11 +5,14 @@ import { getSupabase } from "@/lib/db/supabase";
 import { loadTrackedChannels } from "@/lib/competitors/tracked";
 import { runSnapshotIfDue } from "@/lib/snapshot/run-snapshot";
 import { YouTubeDataClient } from "@/lib/youtube/client";
-import { DatabaseDataSource } from "./database/DatabaseDataSource";
+import { DatabaseDataSource, type TimingCache } from "./database/DatabaseDataSource";
 import { MockDataSource } from "./mock/MockDataSource";
 import { resolveDataSourceKind } from "./resolve-kind";
 import type { DataSource } from "./types";
 import { YouTubeDataSource } from "./youtube/YouTubeDataSource";
+
+/** Lebt über mehrere Anfragen derselben Server-Instanz (Boxenstrategie-Rohdaten). */
+const timingCache: TimingCache = {};
 
 /** Wählt die Datenquelle (siehe resolve-kind.ts) und verdrahtet sie. */
 export function getDataSource(): DataSource {
@@ -41,6 +44,8 @@ export function getDataSource(): DataSource {
         analytics: store,
         alerts: store,
         competitors: store,
+        timing: store,
+        timingCache,
       });
     }
     case "youtube": {

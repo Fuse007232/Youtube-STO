@@ -71,7 +71,7 @@ export function TopShortsWidget() {
         </>
       }
     >
-      <ol className="grid gap-x-6 gap-y-1 lg:grid-flow-col lg:grid-cols-2 lg:grid-rows-5">
+      <ol className="grid grid-cols-1 gap-x-6 gap-y-1 lg:grid-flow-col lg:grid-cols-2 lg:grid-rows-5">
         <AnimatePresence mode="popLayout" initial={false}>
           {list.map((s, i) => (
             <ShortRow

@@ -1,6 +1,7 @@
 import type { AlertCandidate, HourRateRow } from "@/lib/alerts/detect";
 import type { AlertItem, AnalyticsDay, ChannelPoint, RankedShort } from "@/lib/data/types";
 import type { ChannelConfig } from "@/config/channels";
+import { berlinWeekdayHour, type FirstDayRow, type HourlyActivityRow } from "@/lib/metrics/upload-timing";
 import type {
   AlertStore,
   AnalyticsDayRow,
@@ -18,6 +19,7 @@ import type {
   RunRow,
   RunTrigger,
   SnapshotStore,
+  TimingStore,
   VideoSnapshotRow,
   VideoState,
   VideoUpsert,
@@ -26,7 +28,9 @@ import type {
 const DAY = 24 * 3_600_000;
 
 /** Datenbank im Arbeitsspeicher – nur für Tests. Bildet die SQL-Logik nach. */
-export class MemoryStore implements SnapshotStore, DashboardReader, AnalyticsStore, AlertStore, CompetitorStore {
+export class MemoryStore
+  implements SnapshotStore, DashboardReader, AnalyticsStore, AlertStore, CompetitorStore, TimingStore
+{
   channels = new Map<string, ChannelRow>();
   channelSnapshots: ChannelSnapshotRow[] = [];
   videos = new Map<string, VideoUpsert & { statsAt: number; removedAt: number | null }>();
@@ -232,5 +236,46 @@ export class MemoryStore implements SnapshotStore, DashboardReader, AnalyticsSto
     this.channels.delete(id);
     this.channelSnapshots = this.channelSnapshots.filter((s) => s.channelId !== id);
     for (const [vid, v] of this.videos) if (v.channelId === id) this.videos.delete(vid);
+  }
+
+  // Gleiche Regeln wie SQL video_first_day_views (0009)
+  async getFirstDayViews(hours: number, now: number): Promise<FirstDayRow[]> {
+    const H = 3_600_000;
+    const out: FirstDayRow[] = [];
+    for (const v of this.videos.values()) {
+      if (v.removedAt !== null || v.publishedAt === null || v.publishedAt > now - hours * H) continue;
+      const snaps = this.videoSnapshots.filter((s) => s.videoId === v.id).sort((a, b) => a.takenAt - b.takenAt);
+      const at = [...snaps].reverse().find((s) => s.takenAt <= v.publishedAt! + hours * H);
+      if (!at || at.takenAt < v.publishedAt + (hours - 2) * H) continue;
+      out.push({ id: v.id, channelId: v.channelId, publishedAt: v.publishedAt, viewsAt: at.views });
+    }
+    return out;
+  }
+
+  // Gleiche Regeln wie SQL channel_hourly_activity (0008)
+  async getHourlyActivity(days: number, now: number): Promise<HourlyActivityRow[]> {
+    const sums = new Map<string, HourlyActivityRow>();
+    const byChannel = new Map<string, ChannelSnapshotRow[]>();
+    for (const s of this.channelSnapshots) {
+      if (s.takenAt <= now - days * DAY) continue;
+      byChannel.set(s.channelId, [...(byChannel.get(s.channelId) ?? []), s]);
+    }
+    for (const [channelId, list] of byChannel) {
+      list.sort((a, b) => a.takenAt - b.takenAt);
+      for (let i = 1; i < list.length; i++) {
+        const a = list[i - 1];
+        const b = list[i];
+        const dv = (b.videoViews ?? b.views) - (a.videoViews ?? a.views);
+        const dt = b.takenAt - a.takenAt;
+        if (dt > 75 * 60_000 || dv < 0) continue;
+        const { hour } = berlinWeekdayHour(a.takenAt + dt / 2);
+        const key = `${channelId}:${hour}`;
+        const row = sums.get(key) ?? { channelId, hour, views: 0, hours: 0 };
+        row.views += dv;
+        row.hours += dt / 3_600_000;
+        sums.set(key, row);
+      }
+    }
+    return [...sums.values()];
   }
 }

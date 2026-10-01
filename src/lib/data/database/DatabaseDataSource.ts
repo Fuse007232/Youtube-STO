@@ -1,7 +1,8 @@
 import { CHANNELS, type ChannelConfig } from "@/config/channels";
 import { buildDashboard } from "@/lib/data/build-dashboard";
 import type { DashboardData, DataSource } from "@/lib/data/types";
-import type { AlertStore, AnalyticsStore, CompetitorStore, DashboardReader } from "@/lib/db/store";
+import type { AlertStore, AnalyticsStore, CompetitorStore, DashboardReader, TimingStore } from "@/lib/db/store";
+import { activityFromHourly, type ActivityProfile, type FirstDayRow } from "@/lib/metrics/upload-timing";
 import { COMPETITOR_CONFIG } from "@/config/competitors";
 import { buildChannelAnalytics } from "@/lib/analytics/build";
 import { ANALYTICS_PERIOD } from "@/lib/analytics/run-analytics";
@@ -35,7 +36,23 @@ export interface DatabaseSourceOptions {
   alerts?: Pick<AlertStore, "getRecentAlerts">;
   /** Konkurrenten lesen (Phase 6.3). Fehlt es, gibt es keine Fahrerwertung. */
   competitors?: Pick<CompetitorStore, "getCompetitors">;
+  /** Boxenstrategie-Rohdaten lesen (Phase 6.2). Fehlt es, gibt es keine Upload-Uhrzeit-Auswertung. */
+  timing?: TimingStore;
+  /**
+   * Zwischenspeicher für die Boxenstrategie-Rohdaten (ändern sich nur mit neuen
+   * Schnappschüssen). Am besten ein Objekt, das über mehrere Anfragen lebt.
+   */
+  timingCache?: TimingCache;
 }
+
+type TimingRaw = { firstDay: FirstDayRow[]; activity: Map<string, ActivityProfile> };
+export interface TimingCache {
+  key?: number;
+  value?: TimingRaw;
+}
+
+/** So viele Tage Kanal-Verlauf fließen ins Aktivitätsprofil. */
+const ACTIVITY_DAYS = 14;
 
 export class DatabaseDataSource implements DataSource {
   readonly kind = "database" as const;
@@ -75,7 +92,7 @@ export class DatabaseDataSource implements DataSource {
 
     const rivals = await this.loadRivals(now);
 
-    const [analytics, alerts] = await Promise.all([
+    const [analytics, alerts, timing] = await Promise.all([
       this.opts.analytics ? this.loadAnalytics(ids, rankings, now) : Promise.resolve(null),
       this.opts.alerts
         ? this.opts.alerts.getRecentAlerts(now - 7 * 24 * HOUR_MS, 20).catch((e) => {
@@ -83,6 +100,7 @@ export class DatabaseDataSource implements DataSource {
             return null;
           })
         : Promise.resolve(null),
+      this.loadTiming(now, lastSnapshotAt),
     ]);
 
     return buildDashboard({
@@ -102,7 +120,31 @@ export class DatabaseDataSource implements DataSource {
       alerts,
       rivals: rivals?.raw,
       rivalShorts: rivals ? rankings.filter((s) => rivals.ids.has(s.channelId)) : undefined,
+      timing,
     });
+  }
+
+  /** Rohdaten der Boxenstrategie – je Schnappschuss nur einmal aus der Datenbank. */
+  private async loadTiming(now: number, lastSnapshotAt: number): Promise<TimingRaw | null> {
+    const store = this.opts.timing;
+    if (!store) return null;
+    const cache = this.opts.timingCache;
+    if (cache?.value && cache.key === lastSnapshotAt) return cache.value;
+    try {
+      const [firstDay, hourly] = await Promise.all([
+        store.getFirstDayViews(24, now),
+        store.getHourlyActivity(ACTIVITY_DAYS, now),
+      ]);
+      const value = { firstDay, activity: activityFromHourly(hourly) };
+      if (cache) {
+        cache.key = lastSnapshotAt;
+        cache.value = value;
+      }
+      return value;
+    } catch (e) {
+      console.error("[timing] Lesen fehlgeschlagen:", e);
+      return null;
+    }
   }
 
   /** Konkurrenten mit Verlauf laden. Fehler legen das Dashboard nicht lahm. */

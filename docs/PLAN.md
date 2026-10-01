@@ -1,6 +1,6 @@
 # Projektplan: YouTube-Shorts-Dashboard
 
-> Stand: Phase 6 läuft – Alarm per E-Mail ✅, Konkurrenz-Vergleich ✅ gebaut (01.10.2026, wartet auf eingetragene Konkurrenten). Jetzt: beste Upload-Uhrzeit (Plan 6.2).
+> Stand: Phase 6 fertig (01.10.2026) – Alarm per E-Mail ✅, Konkurrenz-Vergleich ✅ (4 Konkurrenten eingetragen), beste Upload-Uhrzeit („Boxenstrategie“) ✅. Die Boxenstrategie wird mit jedem Tag genauer (siehe 6.2 „Ergebnis“).
 > Dieses Dokument wird nach jeder Phase aktualisiert (Status-Tabelle unten).
 
 ---
@@ -315,7 +315,7 @@ Jedes Extra ist ein eigener kleiner Schritt:
    - Immer ≥ 2.000 Aufrufe/Std.; pro Short höchstens 1 Alarm in 24 Std.; mehrere Treffer = eine E-Mail. Grenzwerte in `src/config/app.ts` (`alerts`).
    - Alarme stehen in der Tabelle `alerts` (Migration 0005) und im Widget **„Boxenfunk“**. Einstellungen: Status + „Test-E-Mail senden“.
    - Push aufs Handy ist weiter möglich (später).
-2. **Beste Upload-Uhrzeit** („Boxenstrategie“) – Plan vom 01.10.2026, siehe 6.2 unten.
+2. **Beste Upload-Uhrzeit** („Boxenstrategie“) ✅ gebaut (01.10.2026, siehe 6.2 unten).
 3. **Konkurrenz-Vergleich** ✅ gebaut (01.10.2026, siehe 6.3 unten).
 
 #### 6.2 Beste Upload-Uhrzeit („Boxenstrategie“): Plan
@@ -349,6 +349,15 @@ Jedes Extra ist ein eigener kleiner Schritt:
 **Bewusst nicht:** YouTube-Analytics-Tageswerte pro Video als „erste Tage“ – Analytics zählt in kalifornischen Kalendertagen; je nach Upload-Uhrzeit wäre „Tag 1“ mal 20, mal 10 Stunden lang → genau die Uhrzeit-Verzerrung, die wir vermeiden wollen.
 
 **Fertig, wenn:** Das Widget mit deinen echten Daten eine Empfehlung samt Sicherheit zeigt; nach 1–3 Tagen erscheint die Aktivitäts-Kurve, nach einigen Wochen werden die 24h-Startkurven zur Hauptquelle.
+
+**Ergebnis (01.10.2026):** Gebaut wie geplant, mit drei Änderungen:
+- Die Balken „nach Uhrzeit“ / „nach Wochentag“ stecken direkt in der Heatmap (oberste Zeile „Alle“ = alle Tage je Uhrzeit, rechte Spalte „Ø Tag“ = je Wochentag). Die Publikums-Kurve ist ein Farbstreifen unter der Heatmap, ausgerichtet an denselben Uhrzeit-Spalten (keine zweite Y-Achse).
+- Migration **0009**: Die Regel „erster Messpunkt ≤ 3 Std. nach Upload“ aus 0008 entfällt – für den 24h-Wert reicht ein Messpunkt kurz vor der 24-Std.-Marke. So zählt schon der Short vom 01.10.
+- Bester Wochentag (lila / Empfehlung) nur, wenn er sich statistisch klar abhebt (z ≥ 2,5 und ≥ 10 %). Sicherheit: „deutlich“ ab z ≥ 2,5 und ≥ 8 Shorts, „Tendenz“ ab z ≥ 1,5, sonst „unsicher“. Konkurrenz-Test-Vorschläge erst ab 8 Konkurrenz-Shorts im Zeitfenster.
+
+Erste echte Auswertung: **BRV – „Teste mehr um 14–16 Uhr“, +49 % gegenüber 12–14 Uhr (Tendenz, 29 Shorts)**; 61 % der BRV-Uploads liegen um 12–14 Uhr. GRA: noch unsicher (zu wenige Shorts außerhalb der Standard-Zeit). Konkurrenz: am stärksten um 22–24 Uhr. Wochentag: bei keinem Kanal ein klarer Unterschied.
+
+**Einlaufen:** Publikums-Kurve ab ca. 02.10. abends (jede Tagesstunde einmal gemessen). Erster 24h-Wert am 02.10. um 13 Uhr (Short vom 01.10.), danach für jeden neuen Short. Shorts von vor dem 01.10. bekommen ihren Langzeit-Wert, sobald sie 7 Tage alt sind. Technik: `src/lib/metrics/upload-timing.ts`, Store `getFirstDayViews`/`getHourlyActivity` (Zwischenspeicher je Schnappschuss), `DashboardData.uploadTiming`, Widget `upload-timing`. 160 Tests.
 
 #### 6.3 Konkurrenz-Vergleich: Plan
 

@@ -9,6 +9,7 @@ import subsPerShort from "./subs-per-short";
 import teamRadio from "./team-radio";
 import topShorts from "./top-shorts";
 import trendChart from "./trend-chart";
+import uploadTiming from "./upload-timing";
 
 /**
  * ZENTRALE WIDGET-LISTE
@@ -25,6 +26,8 @@ export const WIDGETS: WidgetDefinition[] = [
   topShorts,
   // Phase 6: „Short geht ab“-Alarme
   teamRadio,
+  // Phase 6.2: beste Upload-Uhrzeit
+  uploadTiming,
   // Phase 5: YouTube Analytics (blenden sich aus, wenn die Datenquelle keine Analytics hat)
   analyticsOverview,
   subsPerShort,

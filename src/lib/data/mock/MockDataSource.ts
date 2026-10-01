@@ -3,6 +3,7 @@ import { CHANNELS, type ChannelConfig } from "@/config/channels";
 import { buildDashboard, type RawChannelData } from "@/lib/data/build-dashboard";
 import type { ChannelPoint, DataSource, RankedShort } from "@/lib/data/types";
 import { HOUR_MS } from "@/lib/metrics/deltas";
+import { activityFromPoints, type FirstDayRow } from "@/lib/metrics/upload-timing";
 import { roundSubscribersLikeYouTube } from "@/lib/metrics/rounding";
 import { createRandom, gaussian, hashString } from "./random";
 import { mockAlerts, mockAnalytics } from "./mock-analytics";
@@ -115,6 +116,11 @@ function viewsAt(short: MockShort, t: number, activityAtT: number): number {
   return short.peakViews * (1 - Math.exp(-a / short.tau)) + short.peakViews * short.tail * (a / 24);
 }
 
+/** Erfundener Uhrzeit-Effekt: Uploads um 15 Uhr UTC laufen am besten, nachts am schwächsten. */
+function slotBoost(hourUtc: number): number {
+  return 1 + 0.3 * Math.cos((2 * Math.PI * (hourUtc - 15)) / 24);
+}
+
 /** Alle Shorts eines Kanals, die bis `until` veröffentlicht wurden (fester Upload-Plan). */
 function generateShorts(channel: ChannelConfig, profile: ChannelProfile, until: number): MockShort[] {
   const perDay = profile.uploadHoursUtc.length;
@@ -126,7 +132,11 @@ function generateShorts(channel: ChannelConfig, profile: ChannelProfile, until: 
       const seed = hashString(`${channel.id}:${index}`);
       const rand = createRandom(seed);
       const jitter = Math.floor(rand() * 50) * 60_000; // bis zu 50 Min. später
-      const publishedAt = day + hour * HOUR_MS + jitter;
+      // Ab und zu ein „Test-Upload“ zu einer anderen Uhrzeit (eigener Zufall, damit
+      // die übrigen Werte gleich bleiben) – so hat die Boxenstrategie etwas zu vergleichen.
+      const plan = createRandom(hashString(`${channel.id}:${index}:slot`));
+      const uploadHour = plan() < 0.22 ? 5 + Math.floor(plan() * 18) : hour;
+      const publishedAt = day + uploadHour * HOUR_MS + jitter;
       if (publishedAt > until) continue;
       // Ab und zu ein Ausreißer nach oben – so entstehen „virale“ Shorts.
       const viral = rand() < 0.05 ? 4 + rand() * 6 : 1;
@@ -137,7 +147,7 @@ function generateShorts(channel: ChannelConfig, profile: ChannelProfile, until: 
         publishedAt,
         durationSec: 12 + Math.floor(rand() * 48),
         likeRate: 0.025 + rand() * 0.035,
-        peakViews: profile.medianViews * Math.exp(profile.spread * gaussian(rand)) * viral,
+        peakViews: profile.medianViews * Math.exp(profile.spread * gaussian(rand)) * viral * slotBoost(uploadHour),
         tau: 14 + rand() * 40,
         tail: 0.0006 + rand() * 0.0012,
         activityAtPublish: activityHours(publishedAt),
@@ -145,7 +155,7 @@ function generateShorts(channel: ChannelConfig, profile: ChannelProfile, until: 
       index++;
     }
   }
-  return shorts;
+  return shorts.sort((a, b) => a.publishedAt - b.publishedAt);
 }
 
 function channelViewsAt(shorts: MockShort[], t: number): number {
@@ -158,6 +168,8 @@ function channelViewsAt(shorts: MockShort[], t: number): number {
 interface ChannelSimulation {
   raw: RawChannelData;
   shorts: RankedShort[];
+  /** Aufrufe nach 24 Std. für Shorts aus dem simulierten Messzeitraum. */
+  firstDay: FirstDayRow[];
 }
 
 function simulateChannel(channel: ChannelConfig, lastSnapshotAt: number): ChannelSimulation {
@@ -205,9 +217,17 @@ function simulateChannel(channel: ChannelConfig, lastSnapshotAt: number): Channe
     };
   });
 
+  const firstDay: FirstDayRow[] = shorts
+    .filter((s) => s.publishedAt >= first && s.publishedAt + DAY_MS <= lastSnapshotAt)
+    .map((s) => {
+      const t = s.publishedAt + DAY_MS;
+      return { id: s.id, channelId: s.channelId, publishedAt: s.publishedAt, viewsAt: Math.round(viewsAt(s, t, activityHours(t))) };
+    });
+
   return {
     raw: { channel, points, subscribersRounded: true, avatarUrl: null },
     shorts: ranked,
+    firstDay,
   };
 }
 
@@ -242,6 +262,10 @@ export class MockDataSource implements DataSource {
       alerts: mockAlerts(shorts, lastSnapshotAt),
       rivals: cache.rivals.map((s) => s.raw),
       rivalShorts: cache.rivals.flatMap((s) => s.shorts),
+      timing: {
+        firstDay: [...cache.sims, ...cache.rivals].flatMap((s) => s.firstDay),
+        activity: new Map(cache.sims.map((s) => [s.raw.channel.id, activityFromPoints(s.raw.points)])),
+      },
     });
   }
 }

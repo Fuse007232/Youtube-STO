@@ -1,6 +1,7 @@
 import type { ChannelConfig, ChannelKind } from "@/config/channels";
 import type { AlertCandidate, HourRateRow } from "@/lib/alerts/detect";
 import type { AlertItem, AnalyticsDay, ChannelPoint, RankedShort } from "@/lib/data/types";
+import type { FirstDayRow, HourlyActivityRow } from "@/lib/metrics/upload-timing";
 
 /**
  * Was die App von der Datenbank braucht – als Schnittstelle beschrieben.
@@ -162,6 +163,17 @@ export interface CompetitorStore {
   addCompetitor(row: { id: string; name: string; code: string; color: string; avatarUrl: string | null }): Promise<void>;
   /** Löscht den Konkurrenten samt Schnappschüssen und Videos. */
   removeCompetitor(id: string): Promise<void>;
+}
+
+/** Boxenstrategie: beste Upload-Uhrzeit (Phase 6.2). */
+export interface TimingStore {
+  /**
+   * Aufrufe jedes Shorts nach `hours` Stunden – nur Shorts mit einem Messpunkt kurz
+   * vor der Marke (SQL `video_first_day_views`; rechnet mit der Datenbank-Uhr).
+   */
+  getFirstDayViews(hours: number, now: number): Promise<FirstDayRow[]>;
+  /** Aufrufe + gemessene Zeit je Tagesstunde (Berlin) und Kanal (SQL `channel_hourly_activity`). */
+  getHourlyActivity(days: number, now: number): Promise<HourlyActivityRow[]>;
 }
 
 /** Lesen (Dashboard). */

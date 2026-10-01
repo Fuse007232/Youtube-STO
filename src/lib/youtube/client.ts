@@ -98,17 +98,20 @@ export class YouTubeDataClient {
     return ids;
   }
 
-  /** Details + Statistiken für beliebig viele Videos (1 Einheit pro 50 Videos). */
+  /**
+   * Details + Statistiken für beliebig viele Videos (1 Einheit pro 50 Videos).
+   * Die 50er-Pakete laufen gleichzeitig – das spart Wartezeit, nicht Kontingent.
+   */
   async listVideos(ids: string[]): Promise<YtVideo[]> {
-    const out: YtVideo[] = [];
-    for (const part of chunk(ids, PAGE_SIZE)) {
-      const data = await this.get<YtListResponse<YtVideo>>("videos", {
-        part: "snippet,statistics,contentDetails",
-        id: part.join(","),
-        maxResults: String(PAGE_SIZE),
-      });
-      out.push(...(data.items ?? []));
-    }
-    return out;
+    const pages = await Promise.all(
+      chunk(ids, PAGE_SIZE).map((part) =>
+        this.get<YtListResponse<YtVideo>>("videos", {
+          part: "snippet,statistics,contentDetails",
+          id: part.join(","),
+          maxResults: String(PAGE_SIZE),
+        }),
+      ),
+    );
+    return pages.flatMap((p) => p.items ?? []);
   }
 }

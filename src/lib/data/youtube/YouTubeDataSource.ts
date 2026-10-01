@@ -44,64 +44,80 @@ export async function fetchYouTubeSnapshot(
     );
   }
 
-  const rawChannels: RawChannelData[] = [];
-  const shorts: RankedShort[] = [];
+  // Beide Kanäle gleichzeitig abfragen (spart Wartezeit, kostet gleich viel Kontingent).
+  const perChannel = await Promise.all(
+    channels.map(async (channel) => {
+      const yt = byId.get(channel.id)!;
+      const stats = yt.statistics ?? {};
+      const raw: RawChannelData = {
+        channel,
+        avatarUrl: pickThumbnail(yt.snippet?.thumbnails),
+        subscribersRounded: true,
+        points: [
+          {
+            t: now,
+            views: toInt(stats.viewCount),
+            subscribers: stats.hiddenSubscriberCount ? 0 : toInt(stats.subscriberCount),
+            videoCount: toInt(stats.videoCount),
+          },
+        ],
+      };
 
-  for (const channel of channels) {
-    const yt = byId.get(channel.id)!;
-    const stats = yt.statistics ?? {};
-    rawChannels.push({
-      channel,
-      avatarUrl: pickThumbnail(yt.snippet?.thumbnails),
-      subscribersRounded: true,
-      points: [
-        {
-          t: now,
-          views: toInt(stats.viewCount),
-          subscribers: stats.hiddenSubscriberCount ? 0 : toInt(stats.subscriberCount),
-          videoCount: toInt(stats.videoCount),
-        },
-      ],
-    });
-
-    const uploads = yt.contentDetails?.relatedPlaylists?.uploads;
-    if (!uploads) continue;
-    const videoIds = await client.listPlaylistVideoIds(uploads);
-    const videos = await client.listVideos(videoIds);
-    for (const v of videos) {
-      const views = toInt(v.statistics?.viewCount);
-      shorts.push({
+      const uploads = yt.contentDetails?.relatedPlaylists?.uploads;
+      if (!uploads) return { raw, shorts: [] as RankedShort[] };
+      const videoIds = await client.listPlaylistVideoIds(uploads);
+      const videos = await client.listVideos(videoIds);
+      const shorts: RankedShort[] = videos.map((v) => ({
         id: v.id,
         channelId: channel.id,
         title: v.snippet?.title ?? "(ohne Titel)",
         publishedAt: v.snippet?.publishedAt ? Date.parse(v.snippet.publishedAt) : 0,
         thumbnailUrl: pickThumbnail(v.snippet?.thumbnails),
         durationSec: parseIsoDuration(v.contentDetails?.duration),
-        views,
+        views: toInt(v.statistics?.viewCount),
         // Ohne Schnappschüsse unbekannt – wird nicht angezeigt (hasHistory = false).
         views24h: 0,
         views7d: 0,
         likes: toInt(v.statistics?.likeCount),
-      });
-    }
-  }
+      }));
+      return { raw, shorts };
+    }),
+  );
+  const rawChannels = perChannel.map((p) => p.raw);
+  const shorts = perChannel.flatMap((p) => p.shorts);
 
   return { fetchedAt: now, unitsUsed: client.unitsUsed, channels: rawChannels, shorts };
 }
 
-// Zwischenspeicher (pro Server-Instanz) + gemeinsamer Abruf, falls mehrere Anfragen gleichzeitig kommen.
+/**
+ * Zwischenspeicher (pro Server-Instanz):
+ * - jünger als 10 Min. → direkt verwenden
+ * - älter → sofort die alten Zahlen zeigen und im Hintergrund auffrischen
+ *   („stale-while-revalidate“), damit niemand auf 21 YouTube-Abfragen warten muss
+ * - älter als 1 Stunde → doch warten (so alte Zahlen wären irreführend)
+ * Gleichzeitige Anfragen teilen sich einen Abruf.
+ */
+const MAX_STALE_MS = 60 * 60_000;
 let cached: YouTubeSnapshot | null = null;
 let inFlight: Promise<YouTubeSnapshot> | null = null;
 
 export class YouTubeDataSource implements DataSource {
   readonly kind = "youtube" as const;
 
-  constructor(private readonly apiKey: string) {}
+  constructor(
+    private readonly apiKey: string,
+    /** Nur für Tests: nachgebaute YouTube-API. */
+    private readonly fetchFn: typeof fetch = fetch,
+    /**
+     * Hält Hintergrund-Arbeit am Leben, nachdem die Antwort verschickt ist.
+     * Auf Vercel: Next.js `after()` (sonst kann die Funktion vorher eingefroren werden).
+     */
+    private readonly runInBackground: (task: Promise<unknown>) => void = () => {},
+  ) {}
 
-  private async snapshot(now: number): Promise<YouTubeSnapshot> {
-    if (cached && now - cached.fetchedAt < REFRESH_MS) return cached;
+  private refresh(now: number): Promise<YouTubeSnapshot> {
     if (!inFlight) {
-      inFlight = fetchYouTubeSnapshot(new YouTubeDataClient(this.apiKey))
+      inFlight = fetchYouTubeSnapshot(new YouTubeDataClient(this.apiKey, this.fetchFn), CHANNELS, now)
         .then((s) => {
           cached = s;
           return s;
@@ -111,6 +127,19 @@ export class YouTubeDataSource implements DataSource {
         });
     }
     return inFlight;
+  }
+
+  private async snapshot(now: number): Promise<YouTubeSnapshot> {
+    const age = cached ? now - cached.fetchedAt : Infinity;
+    if (cached && age < REFRESH_MS) return cached;
+    if (cached && age < MAX_STALE_MS) {
+      // Im Hintergrund auffrischen; Fehler dabei nur protokollieren, alte Zahlen bleiben.
+      this.runInBackground(
+        this.refresh(now).catch((e) => console.error("[youtube] Auffrischen fehlgeschlagen:", e)),
+      );
+      return cached;
+    }
+    return this.refresh(now);
   }
 
   async getDashboard(now = Date.now()): Promise<DashboardData> {

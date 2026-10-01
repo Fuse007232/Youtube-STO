@@ -1,4 +1,5 @@
 import "server-only";
+import { after } from "next/server";
 import { MockDataSource } from "./mock/MockDataSource";
 import { resolveDataSourceKind } from "./resolve-kind";
 import type { DataSource } from "./types";
@@ -14,7 +15,7 @@ export function getDataSource(): DataSource {
           "DATA_SOURCE ist auf „youtube“ gestellt, aber YOUTUBE_API_KEY fehlt. Bitte in Vercel unter Settings → Environment Variables eintragen.",
         );
       }
-      return new YouTubeDataSource(key);
+      return new YouTubeDataSource(key, fetch, (task) => after(task));
     }
     case "database":
       throw new Error("Die Datenbank-Quelle kommt erst in Phase 3.");

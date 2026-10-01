@@ -1,6 +1,6 @@
 # Projektplan: YouTube-Shorts-Dashboard
 
-> Stand: Phase 2 gebaut (echte Zahlen über die YouTube Data API). Wartet auf den API-Schlüssel in Vercel für den Echt-Test.
+> Stand: Phase 2 fertig (echte Zahlen laufen auf Vercel). Nächste Phase: 3 (Supabase-Datenbank, Schnappschüsse, 24h-Duell).
 > Dieses Dokument wird nach jeder Phase aktualisiert (Status-Tabelle unten).
 
 ---
@@ -26,7 +26,7 @@ YouTube hat keine Echtzeit-Schnittstelle. Deshalb holt ein Hintergrund-Job alle 
 |---|---|---|
 | 0 | Planung (dieses Dokument) | ✅ fertig |
 | 1 | Grundgerüst + Dashboard mit Beispieldaten | ✅ fertig (Design abgenommen) |
-| 2 | Echte Zahlen über die YouTube Data API | ✅ gebaut, Echt-Test mit deinem Schlüssel offen |
+| 2 | Echte Zahlen über die YouTube Data API | ✅ fertig (Zahlen geprüft) |
 | 3 | Supabase-Datenbank, Schnappschüsse, 24h-Duell | ⏳ offen |
 | 4 | Veröffentlichung auf Vercel (inkl. Passwortschutz und Zeitplaner) | ⏳ offen |
 | 5 | OAuth-Login + YouTube Analytics API | ⏳ offen |
@@ -214,7 +214,8 @@ Geschätzter Bedarf: deutlich unter 100 MB pro Jahr.
 
 **Ergebnis Phase 2:**
 - Datenquelle wird automatisch gewählt: `YOUTUBE_API_KEY` vorhanden → echte Zahlen, sonst Beispieldaten. `DATA_SOURCE=mock` erzwingt Beispieldaten.
-- Ein Abruf kostet ca. 19 Einheiten (1 Kanäle + 8 Upload-Seiten + 10 Video-Pakete) und wird 10 Min. zwischengespeichert → höchstens ca. 2.700 Einheiten/Tag (pro laufender Server-Instanz). Ab Phase 3 holt nur noch der Zeitplaner Daten.
+- Ein Abruf kostet 21 Einheiten (bei 332 + 101 Shorts) und wird 10 Min. zwischengespeichert → höchstens ca. 3.000 Einheiten/Tag (pro laufender Server-Instanz). Ab Phase 3 holt nur noch der Zeitplaner Daten.
+- Tempo: Abfragen laufen parallel; abgelaufene Zahlen werden sofort gezeigt und im Hintergrund aufgefrischt; beim allerersten Laden erscheint ein Ladebildschirm. Richtig schnell wird es ab Phase 3 (Dashboard liest nur noch aus der Datenbank).
 - Kanalbilder und Vorschaubilder kommen direkt von YouTube; Klick auf einen Short öffnet ihn auf YouTube.
 - Verständliche Fehlerseite (z. B. „Schlüssel ungültig“, „Kontingent aufgebraucht“, „API nicht aktiviert“).
 - 52 Tests.

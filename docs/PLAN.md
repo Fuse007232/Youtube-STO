@@ -1,6 +1,6 @@
 # Projektplan: YouTube-Shorts-Dashboard
 
-> Stand: Phase 6 fertig (01.10.2026) – Alarm per E-Mail ✅, Konkurrenz-Vergleich ✅ (4 Konkurrenten eingetragen), beste Upload-Uhrzeit („Boxenstrategie“) ✅. Die Boxenstrategie wird mit jedem Tag genauer (siehe 6.2 „Ergebnis“).
+> Stand: Phase 7 (Feinschliff) fertig (01.10.2026). Davor: Phase 6 fertig (01.10.2026) – Alarm per E-Mail ✅, Konkurrenz-Vergleich ✅ (4 Konkurrenten eingetragen), beste Upload-Uhrzeit („Boxenstrategie“) ✅. Die Boxenstrategie wird mit jedem Tag genauer (siehe 6.2 „Ergebnis“).
 > Dieses Dokument wird nach jeder Phase aktualisiert (Status-Tabelle unten).
 
 ---
@@ -31,7 +31,7 @@ YouTube hat keine Echtzeit-Schnittstelle. Deshalb holt ein Hintergrund-Job alle 
 | 4 | Veröffentlichung auf Vercel (inkl. Passwortschutz und Zeitplaner) | ✅ fertig (Login aktiv, Cron seit 01.10. 19:15) |
 | 5 | OAuth-Login + YouTube Analytics API | ✅ fertig (beide Kanäle verbunden) |
 | 6 | Extras (Alarm, beste Upload-Zeit, Konkurrenz) | ✅ fertig |
-| 7 | Feinschliff: Seiten Rennen/Analyse, Short-Länge, Langzeit-Anteil, Upload-Kalender, Short-Steckbrief, Kommentar-Puls, Konkurrenz-Radar, Rennbericht, Wächter | 🔄 läuft |
+| 7 | Feinschliff: Seiten Rennen/Analyse, Short-Länge, Langzeit-Anteil, Upload-Kalender, Short-Steckbrief, Kommentar-Puls, Konkurrenz-Radar, Rennbericht, Wächter | ✅ fertig (01.10.2026) |
 
 ---
 
@@ -423,6 +423,13 @@ Erste echte Auswertung: **BRV – „Teste mehr um 14–16 Uhr“, +49 % gegenü
    - Tabelle `notifications` merkt sich, was schon verschickt wurde. Einstellungen: Status + „Rennbericht jetzt senden“.
 
 **Wo ich dich brauche:** nirgends – Resend und `ALERT_EMAIL_TO` sind schon eingerichtet. Optional: Rennbericht im Postfach als „kein Spam“ markieren.
+
+**Ergebnis (01.10.2026):** Alles gebaut wie geplant, je Schritt ein Commit; 183 Tests.
+- Echte Probeläufe: Kommentar-Abruf 361 Kommentare / 12 Einheiten; Wächter auf echten Daten ohne Fehlalarm; Steckbrief, Kalender, Renndistanz (BRV: 45–60 s +18 %, noch unsicher), Reifenverschleiß und Radar mit echten Zahlen geprüft.
+- Konkurrenz-Radar fair nach Alter getrennt (erster Entwurf verglich frische mit alten Shorts → Faktoren bis 400×).
+- Migrationen 0010 (`comments`, `video_comment_gains`, Lauf-Art `comments`) und 0011 (`notifications`, `removed_own_videos`).
+- Erster Rennbericht am 02.10. ab 8 Uhr (01.10. als „erledigt“ vorgemerkt, damit er nicht abends kommt).
+- Einlaufen: Upload-Kalender bekommt beim nächsten Analytics-Abruf (alle 6 Std.) 200 Tage Aufrufe; „Kommentare 24h“ und Radar-Tempo werden nach 24 Std. Verlauf genau.
 
 ---
 

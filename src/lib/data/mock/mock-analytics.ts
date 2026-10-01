@@ -1,6 +1,6 @@
 import type { ChannelConfig } from "@/config/channels";
 import { buildChannelAnalytics } from "@/lib/analytics/build";
-import type { AnalyticsDay, ChannelAnalytics, RankedShort } from "@/lib/data/types";
+import type { AlertItem, AnalyticsDay, ChannelAnalytics, RankedShort } from "@/lib/data/types";
 import type { AnalyticsVideoRow, BreakdownRow } from "@/lib/db/store";
 import { createRandom, hashString } from "./random";
 
@@ -81,4 +81,27 @@ export function mockAnalytics(
     breakdowns,
     videoInfo: new Map(own.map((s) => [s.id, s])),
   });
+}
+
+/** Zwei Beispiel-Alarme für den Boxenfunk. */
+export function mockAlerts(shorts: RankedShort[], now: number): AlertItem[] {
+  const top = [...shorts].sort((a, b) => b.views24h - a.views24h);
+  const young = top.find((s) => now - s.publishedAt < DAY);
+  const old = top.find((s) => now - s.publishedAt > 3 * DAY);
+  const items: AlertItem[] = [];
+  if (young) {
+    items.push({
+      id: 2, videoId: young.id, channelId: young.channelId, kind: "rocket", detectedAt: now - 40 * 60_000,
+      title: young.title, thumbnailUrl: null, viewsLastHour: Math.round(young.views24h / 6), baselineHour: 18_000,
+      viewsTotal: young.views, emailedAt: now - 40 * 60_000, emailError: null,
+    });
+  }
+  if (old) {
+    items.push({
+      id: 1, videoId: old.id, channelId: old.channelId, kind: "breakout", detectedAt: now - 5 * 3_600_000,
+      title: old.title, thumbnailUrl: null, viewsLastHour: 6_400, baselineHour: 1_100,
+      viewsTotal: old.views, emailedAt: now - 5 * 3_600_000, emailError: null,
+    });
+  }
+  return items;
 }

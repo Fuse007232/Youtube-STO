@@ -1,6 +1,6 @@
 # Projektplan: YouTube-Shorts-Dashboard
 
-> Stand: Phase 5 fertig (beide Kanäle mit YouTube Analytics verbunden, 01.10.2026). Nächste Phase: 6 (Extras).
+> Stand: Phase 6 läuft – Extra 1 („Short geht ab“-Alarm per E-Mail) gebaut, wartet auf Resend-Schlüssel in Vercel.
 > Dieses Dokument wird nach jeder Phase aktualisiert (Status-Tabelle unten).
 
 ---
@@ -30,7 +30,7 @@ YouTube hat keine Echtzeit-Schnittstelle. Deshalb holt ein Hintergrund-Job alle 
 | 3 | Supabase-Datenbank, Schnappschüsse, 24h-Duell | ✅ fertig (erste Schnappschüsse am 01.10.2026 ab 18:50) |
 | 4 | Veröffentlichung auf Vercel (inkl. Passwortschutz und Zeitplaner) | ✅ fertig (Login aktiv, Cron seit 01.10. 19:15) |
 | 5 | OAuth-Login + YouTube Analytics API | ✅ fertig (beide Kanäle verbunden) |
-| 6 | Extras (Alarm, beste Upload-Zeit, Konkurrenz) | ⏳ offen |
+| 6 | Extras (Alarm, beste Upload-Zeit, Konkurrenz) | 🔄 Alarm gebaut; Upload-Zeit + Konkurrenz offen |
 
 ---
 
@@ -308,11 +308,17 @@ Geschätzter Bedarf: deutlich unter 100 MB pro Jahr.
 ### Phase 6: Extras
 
 Jedes Extra ist ein eigener kleiner Schritt:
-1. **„Short geht ab“-Alarm:** Nach jedem Schnappschuss wird geprüft, ob ein Short in der letzten Stunde deutlich schneller wächst als üblich (verglichen mit den Startkurven deiner bisherigen Shorts). Treffer landen in `alerts` und werden dir geschickt. **Entschieden:** bevorzugt **Push aufs Handy** (Web-Push: Dashboard zum Startbildschirm hinzufügen, auf dem iPhone nötig), sonst **E-Mail** (z. B. über den Dienst Resend, Variable `RESEND_API_KEY`).
+1. **„Short geht ab“-Alarm** ✅ gebaut (01.10.2026). **Entschieden:** erst mal **nur E-Mail** über Resend (Gratis-Plan, ohne eigene Domain nur an die Konto-E-Mail), kein Push.
+   - Nach jedem Schnappschuss (Cron) prüft `runAlerts` alle eigenen Shorts:
+     - 🚀 **Raketenstart:** Short jünger als 24 Std. schafft in der letzten Stunde ≥ 50 % der üblichen Kanal-Aufrufe pro Stunde.
+     - 📈 **Ausbruch:** älterer Short schafft in der letzten Stunde ≥ 3× seinen Stundenschnitt der 24 Std. davor (braucht 25 Std. Verlauf).
+   - Immer ≥ 2.000 Aufrufe/Std.; pro Short höchstens 1 Alarm in 24 Std.; mehrere Treffer = eine E-Mail. Grenzwerte in `src/config/app.ts` (`alerts`).
+   - Alarme stehen in der Tabelle `alerts` (Migration 0005) und im Widget **„Boxenfunk“**. Einstellungen: Status + „Test-E-Mail senden“.
+   - Push aufs Handy ist weiter möglich (später).
 2. **Beste Upload-Uhrzeit:** Auswertung der ersten 24/48h jedes Shorts nach Wochentag und Uhrzeit (Heatmap).
 3. **Konkurrenz-Vergleich:** Konkurrenz-Kanäle per ID eintragen (`kind = competitor`), gleiche Schnappschüsse, eigenes Widget.
 
-**Wo ich dich brauche:** Push-Benachrichtigungen auf dem Handy erlauben (bzw. E-Mail-Dienst einrichten), Liste der Konkurrenz-Kanäle.
+**Wo ich dich brauche:** Resend-Konto + `RESEND_API_KEY`/`ALERT_EMAIL_TO` in Vercel (Alarm), Liste der Konkurrenz-Kanäle (Vergleich).
 
 ---
 
@@ -332,8 +338,9 @@ Jedes Extra ist ein eigener kleiner Schritt:
 | `GOOGLE_CLIENT_ID` | OAuth-Kennung deiner App | Anleitung I | 5 | Vercel |
 | `GOOGLE_CLIENT_SECRET` | OAuth-Geheimnis deiner App | Anleitung I | 5 | Vercel |
 | `TOKEN_ENCRYPTION_KEY` | Schlüssel zum Verschlüsseln der Refresh-Tokens | Selbst erzeugen (Anleitung K) | 5 | Vercel |
-| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | Schlüsselpaar für Web-Push aufs Handy | erzeuge ich, du trägst es ein | 6 | Vercel |
-| `RESEND_API_KEY`, `ALERT_EMAIL_TO` | Nur falls Alarm per E-Mail | später | 6 | Vercel |
+| `RESEND_API_KEY` | Schlüssel für den E-Mail-Versand der Alarme (`re_…`) | resend.com → API Keys | 6 | Vercel |
+| `ALERT_EMAIL_TO` | Empfänger der Alarme (= E-Mail des Resend-Kontos) | deine E-Mail | 6 | Vercel |
+| `ALERT_EMAIL_FROM` | Optional: Absender (nur mit eigener, bei Resend bestätigter Domain) | – | 6 | Vercel |
 
 **Keine Geheimnisse (dürfen in den Code / Chat):** die beiden Kanal-IDs (`UC…`). Die stehen in `src/config/channels.ts`.
 

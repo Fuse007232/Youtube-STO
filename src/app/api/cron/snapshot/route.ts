@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { SupabaseStore } from "@/lib/db/SupabaseStore";
 import { getSupabase } from "@/lib/db/supabase";
+import { runAlerts } from "@/lib/alerts/run-alerts";
 import { runAnalyticsIfDue } from "@/lib/analytics/run-analytics";
 import { runSnapshot } from "@/lib/snapshot/run-snapshot";
 import { YouTubeDataClient } from "@/lib/youtube/client";
@@ -55,7 +56,15 @@ async function handle(req: Request): Promise<Response> {
       console.error("[cron/analytics]", e);
       analytics = { error: e instanceof Error ? e.message : String(e) };
     }
-    return Response.json({ ...result, analytics }, { headers: { "Cache-Control": "no-store" } });
+    // „Short geht ab“-Alarme prüfen (E-Mail, falls eingerichtet).
+    let alerts: unknown = null;
+    try {
+      alerts = await runAlerts({ store });
+    } catch (e) {
+      console.error("[cron/alerts]", e);
+      alerts = { error: e instanceof Error ? e.message : String(e) };
+    }
+    return Response.json({ ...result, analytics, alerts }, { headers: { "Cache-Control": "no-store" } });
   } catch (e) {
     console.error("[cron/snapshot]", e);
     return Response.json(

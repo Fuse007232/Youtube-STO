@@ -1,5 +1,7 @@
-import type { AnalyticsDay, ChannelPoint, RankedShort } from "@/lib/data/types";
+import type { AlertCandidate, HourRateRow } from "@/lib/alerts/detect";
+import type { AlertItem, AnalyticsDay, ChannelPoint, RankedShort } from "@/lib/data/types";
 import type {
+  AlertStore,
   AnalyticsDayRow,
   AnalyticsStore,
   AnalyticsVideoRow,
@@ -22,13 +24,14 @@ import type {
 const DAY = 24 * 3_600_000;
 
 /** Datenbank im Arbeitsspeicher – nur für Tests. Bildet die SQL-Logik nach. */
-export class MemoryStore implements SnapshotStore, DashboardReader, AnalyticsStore {
+export class MemoryStore implements SnapshotStore, DashboardReader, AnalyticsStore, AlertStore {
   channels = new Map<string, ChannelRow>();
   channelSnapshots: ChannelSnapshotRow[] = [];
   videos = new Map<string, VideoUpsert & { statsAt: number; removedAt: number | null }>();
   videoSnapshots: VideoSnapshotRow[] = [];
   runs: (RunRow & { trigger: RunTrigger; finish?: RunFinish })[] = [];
   compactCalls = 0;
+  alerts: AlertItem[] = [];
   connections = new Map<string, OAuthConnectionRow>();
   analyticsDaily = new Map<string, AnalyticsDayRow>();
   analyticsVideos: (AnalyticsVideoRow & { period: string })[] = [];
@@ -168,5 +171,48 @@ export class MemoryStore implements SnapshotStore, DashboardReader, AnalyticsSto
   }
   async getBreakdowns(channelIds: string[], period: string) {
     return this.breakdowns.filter((b) => channelIds.includes(b.channelId) && b.period === period);
+  }
+
+  // ───────────── Alarme ─────────────
+  /** Gleiche Regeln wie die SQL-Funktion video_hour_rates. */
+  async getVideoHourRates(now: number): Promise<HourRateRow[]> {
+    return [...this.videos.values()]
+      .filter((v) => v.removedAt === null)
+      .map((v) => {
+        const snaps = this.videoSnapshots.filter((s) => s.videoId === v.id).sort((a, b) => a.takenAt - b.takenAt);
+        const at = (t: number) => [...snaps].reverse().find((s) => s.takenAt <= t)?.views ?? null;
+        return {
+          id: v.id,
+          channelId: v.channelId,
+          title: v.title,
+          publishedAt: v.publishedAt,
+          thumbnailUrl: v.thumbnailUrl,
+          viewsNow: v.views,
+          nowAt: v.statsAt,
+          views1h: at(now - 3_600_000),
+          views25h: at(now - 25 * 3_600_000),
+        };
+      });
+  }
+  async getRecentAlerts(since: number, limit = 50) {
+    return this.alerts.filter((a) => a.detectedAt >= since).sort((a, b) => b.detectedAt - a.detectedAt).slice(0, limit);
+  }
+  async insertAlerts(rows: AlertCandidate[], at: number) {
+    return rows.map((r) => {
+      const id = this.alerts.length + 1;
+      this.alerts.push({
+        id, videoId: r.videoId, channelId: r.channelId, kind: r.kind, detectedAt: at, title: r.title,
+        thumbnailUrl: r.thumbnailUrl, viewsLastHour: r.viewsLastHour, baselineHour: r.baselineHour,
+        viewsTotal: r.viewsTotal, emailedAt: null, emailError: null,
+      });
+      return id;
+    });
+  }
+  async markAlertsEmailed(ids: number[], at: number, error: string | null) {
+    for (const a of this.alerts) {
+      if (!ids.includes(a.id)) continue;
+      if (error) a.emailError = error;
+      else a.emailedAt = at;
+    }
   }
 }

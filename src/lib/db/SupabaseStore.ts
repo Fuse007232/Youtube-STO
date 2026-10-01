@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AnalyticsDay, ChannelPoint, RankedShort } from "@/lib/data/types";
+import type { AlertCandidate, HourRateRow } from "@/lib/alerts/detect";
+import type { AlertItem, AnalyticsDay, ChannelPoint, RankedShort } from "@/lib/data/types";
 import type {
+  AlertStore,
   AnalyticsDayRow,
   AnalyticsStore,
   AnalyticsVideoRow,
@@ -36,7 +38,7 @@ async function inBatches<T>(rows: T[], fn: (batch: T[]) => Promise<void>): Promi
   for (let i = 0; i < rows.length; i += WRITE_BATCH) await fn(rows.slice(i, i + WRITE_BATCH));
 }
 
-export class SupabaseStore implements SnapshotStore, DashboardReader, AnalyticsStore {
+export class SupabaseStore implements SnapshotStore, DashboardReader, AnalyticsStore, AlertStore {
   constructor(private readonly db: SupabaseClient) {}
 
   // ───────────── Schreiben ─────────────
@@ -424,5 +426,87 @@ export class SupabaseStore implements SnapshotStore, DashboardReader, AnalyticsS
       views: Number(r.views),
       minutesWatched: Number(r.minutes_watched),
     }));
+  }
+
+  // ───────────── Alarme (Phase 6) ─────────────
+
+  async getVideoHourRates(now: number): Promise<HourRateRow[]> {
+    const out: HourRateRow[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await this.db
+        .rpc("video_hour_rates", { p_now: iso(now) })
+        .order("id")
+        .range(from, from + PAGE - 1);
+      check(error, "Stundenwerte lesen");
+      for (const r of (data ?? []) as Record<string, unknown>[]) {
+        out.push({
+          id: String(r.id),
+          channelId: String(r.channel_id),
+          title: String(r.title ?? ""),
+          publishedAt: ms((r.published_at as string | null) ?? null),
+          thumbnailUrl: (r.thumbnail_url as string | null) ?? null,
+          viewsNow: Number(r.views_now ?? 0),
+          nowAt: ms((r.now_at as string | null) ?? null) ?? now,
+          views1h: r.views_1h === null || r.views_1h === undefined ? null : Number(r.views_1h),
+          views25h: r.views_25h === null || r.views_25h === undefined ? null : Number(r.views_25h),
+        });
+      }
+      if (!data || data.length < PAGE) break;
+    }
+    return out;
+  }
+
+  async getRecentAlerts(since: number, limit = 50): Promise<AlertItem[]> {
+    const { data, error } = await this.db
+      .from("alerts")
+      .select("id, video_id, channel_id, kind, detected_at, views_last_hour, baseline_hour, views_total, emailed_at, email_error, videos(title, thumbnail_url)")
+      .gte("detected_at", iso(since))
+      .order("detected_at", { ascending: false })
+      .limit(limit);
+    check(error, "Alarme lesen");
+    return (data ?? []).map((r) => {
+      const v = (Array.isArray(r.videos) ? r.videos[0] : r.videos) as { title?: string; thumbnail_url?: string | null } | null;
+      return {
+        id: Number(r.id),
+        videoId: r.video_id,
+        channelId: r.channel_id,
+        kind: r.kind,
+        detectedAt: Date.parse(r.detected_at),
+        title: v?.title ?? "",
+        thumbnailUrl: v?.thumbnail_url ?? null,
+        viewsLastHour: Number(r.views_last_hour),
+        baselineHour: r.baseline_hour === null ? null : Number(r.baseline_hour),
+        viewsTotal: Number(r.views_total),
+        emailedAt: ms(r.emailed_at),
+        emailError: r.email_error,
+      };
+    });
+  }
+
+  async insertAlerts(rows: AlertCandidate[], at: number): Promise<number[]> {
+    if (rows.length === 0) return [];
+    const { data, error } = await this.db
+      .from("alerts")
+      .insert(
+        rows.map((r) => ({
+          video_id: r.videoId,
+          channel_id: r.channelId,
+          kind: r.kind,
+          detected_at: iso(at),
+          views_last_hour: r.viewsLastHour,
+          baseline_hour: r.baselineHour,
+          views_total: r.viewsTotal,
+        })),
+      )
+      .select("id");
+    check(error, "Alarme speichern");
+    return (data ?? []).map((r) => Number(r.id));
+  }
+
+  async markAlertsEmailed(ids: number[], at: number, error: string | null) {
+    if (ids.length === 0) return;
+    const patch = error ? { email_error: error } : { emailed_at: iso(at), email_error: null };
+    const res = await this.db.from("alerts").update(patch).in("id", ids);
+    check(res.error, "Alarm-Versand vermerken");
   }
 }

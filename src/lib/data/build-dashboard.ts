@@ -10,6 +10,7 @@ import {
 } from "@/lib/metrics/deltas";
 import { topShortsPerChannel } from "@/lib/metrics/ranking";
 import type {
+  AlertItem,
   ChannelAnalytics,
   ChannelPoint,
   ChannelSummary,
@@ -44,6 +45,7 @@ export interface RawDashboardInput {
   quotaUsedToday: number | null;
   /** YouTube Analytics je Kanal (null/fehlend = Quelle ohne Analytics). */
   analytics?: ChannelAnalytics[] | null;
+  alerts?: AlertItem[] | null;
 }
 
 function summarize(raw: RawChannelData): ChannelSummary | null {
@@ -135,5 +137,6 @@ export function buildDashboard(input: RawDashboardInput): DashboardData {
       dailyLimit: APP_CONFIG.youtubeDailyQuota,
     },
     analytics: input.analytics ?? null,
+    alerts: input.alerts ?? null,
   };
 }

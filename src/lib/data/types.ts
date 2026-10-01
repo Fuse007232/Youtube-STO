@@ -140,6 +140,22 @@ export interface ChannelAnalytics {
   countries: BreakdownItem[];
 }
 
+/** Ein „Short geht ab“-Alarm (Phase 6). */
+export interface AlertItem {
+  id: number;
+  videoId: string;
+  channelId: string;
+  kind: "rocket" | "breakout";
+  detectedAt: number;
+  title: string;
+  thumbnailUrl: string | null;
+  viewsLastHour: number;
+  baselineHour: number | null;
+  viewsTotal: number;
+  emailedAt: number | null;
+  emailError: string | null;
+}
+
 export interface DashboardData {
   source: DataSourceKind;
   /** true = Beispieldaten, nicht echt. */
@@ -172,6 +188,8 @@ export interface DashboardData {
    * Analytics (z. B. YouTube direkt) → Analytics-Widgets blenden sich aus.
    */
   analytics: ChannelAnalytics[] | null;
+  /** Letzte Alarme (neueste zuerst). null = Quelle ohne Alarme. */
+  alerts: AlertItem[] | null;
 }
 
 /** Jede Datenquelle muss diese eine Funktion anbieten. */

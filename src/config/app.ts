@@ -22,6 +22,23 @@ export const APP_CONFIG = {
    * muss sie in der Google Cloud eingetragen sein.
    */
   publicUrl: "https://youtube-sto.vercel.app",
+  /**
+   * „Short geht ab“-Alarm (Phase 6). Nach jedem Schnappschuss geprüft.
+   * - Raketenstart: Short jünger als `rocketMaxAgeHours` schafft in der letzten Stunde
+   *   mind. `rocketShareOfChannel` × die üblichen Kanal-Aufrufe pro Stunde.
+   * - Ausbruch: älterer Short schafft in der letzten Stunde mind. `breakoutFactor` × seinen
+   *   Stundenschnitt der 24 Stunden davor.
+   * - Immer mind. `minViewsPerHour`; pro Short höchstens 1 Alarm in `cooldownHours`.
+   */
+  alerts: {
+    minViewsPerHour: 2_000,
+    breakoutFactor: 3,
+    rocketShareOfChannel: 0.5,
+    rocketMaxAgeHours: 24,
+    cooldownHours: 24,
+    /** Kürzeres Messfenster als das ist zu ungenau → kein Alarm. */
+    minWindowHours: 0.5,
+  },
   /** Wie viele Einträge die Top-Shorts-Rangliste zeigt. */
   topShortsLimit: 10,
 } as const;

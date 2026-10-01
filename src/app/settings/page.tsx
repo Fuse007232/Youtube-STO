@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { APP_CONFIG } from "@/config/app";
 import { CHANNELS } from "@/config/channels";
+import { isEmailConfigured, maskEmail } from "@/lib/alerts/email";
 import { isAuthenticated } from "@/lib/auth/server";
 import type { OAuthConnectionRow } from "@/lib/db/store";
 import { SupabaseStore } from "@/lib/db/SupabaseStore";
@@ -25,6 +27,9 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
   const connectedId = str("connected");
   const disconnectedId = str("disconnected");
   const refreshed = str("refreshed");
+  const mailed = str("mailed");
+  const emailReady = isEmailConfigured();
+  const alertCfg = APP_CONFIG.alerts;
 
   const oauthReady = isOAuthConfigured();
   const dbReady = isSupabaseConfigured();
@@ -69,6 +74,11 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
       {disconnectedId ? (
         <p role="status" className="mb-4 rounded-xl border border-line bg-surface p-4 text-sm text-ink-2">
           Verbindung zu „{nameOf(disconnectedId)}“ wurde getrennt.
+        </p>
+      ) : null}
+      {mailed ? (
+        <p role="status" className="mb-4 rounded-xl border border-sector-improved/40 bg-sector-improved/10 p-4 text-sm text-ink">
+          ✓ Test-E-Mail wurde verschickt – schau in dein Postfach (ggf. auch in den Spam-Ordner).
         </p>
       ) : null}
       {refreshed ? (
@@ -158,6 +168,49 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
             <span className="ml-3 text-xs text-muted">Läuft sonst automatisch alle 6 Stunden.</span>
           </form>
         ) : null}
+      </section>
+
+      <section className="mt-6 rounded-2xl border border-line bg-surface/80 p-5">
+        <h2 className="f1-heading text-sm text-ink">Boxenfunk · „Short geht ab“-Alarm per E-Mail</h2>
+        <p className="mt-1 text-xs text-muted">
+          Nach jedem Schnappschuss (alle 15 Min.) werden alle Shorts geprüft. Pro Short höchstens eine E-Mail in{" "}
+          {alertCfg.cooldownHours} Stunden; mehrere Treffer kommen in einer gemeinsamen E-Mail.
+        </p>
+        <ul className="mt-3 space-y-1 text-xs text-ink-2">
+          <li>
+            🚀 <b className="text-ink">Raketenstart:</b> Short jünger als {alertCfg.rocketMaxAgeHours} Std. schafft in der
+            letzten Stunde mind. {Math.round(alertCfg.rocketShareOfChannel * 100)} % der üblichen Kanal-Aufrufe pro Stunde.
+          </li>
+          <li>
+            📈 <b className="text-ink">Ausbruch:</b> älterer Short schafft in der letzten Stunde mind.{" "}
+            {alertCfg.breakoutFactor}× seinen Stundenschnitt der 24 Stunden davor.
+          </li>
+          <li>
+            Immer mindestens {alertCfg.minViewsPerHour.toLocaleString("de-DE")} Aufrufe pro Stunde.
+          </li>
+        </ul>
+        <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-line bg-bg/40 p-4">
+          {emailReady ? (
+            <>
+              <p className="flex-1 text-sm text-sector-improved">
+                ● E-Mail eingerichtet · an {maskEmail(process.env.ALERT_EMAIL_TO)}
+              </p>
+              <form method="post" action="/api/alerts/test">
+                <button
+                  type="submit"
+                  className="rounded-lg border border-line px-3 py-2 text-xs text-ink-2 transition hover:border-line-strong hover:text-ink"
+                >
+                  ✉ Test-E-Mail senden
+                </button>
+              </form>
+            </>
+          ) : (
+            <p className="text-sm text-ink-2">
+              ○ E-Mail noch nicht eingerichtet: <code>RESEND_API_KEY</code> und <code>ALERT_EMAIL_TO</code> in Vercel
+              eintragen und neu veröffentlichen. Alarme erscheinen trotzdem im Dashboard („Boxenfunk“).
+            </p>
+          )}
+        </div>
       </section>
 
       <section className="mt-6 rounded-2xl border border-line bg-surface/60 p-5 text-xs text-muted">

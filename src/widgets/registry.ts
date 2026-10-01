@@ -5,6 +5,7 @@ import channelOverview from "./channel-overview";
 import duelTower from "./duel-tower";
 import statusBar from "./status-bar";
 import subsPerShort from "./subs-per-short";
+import teamRadio from "./team-radio";
 import topShorts from "./top-shorts";
 import trendChart from "./trend-chart";
 
@@ -19,6 +20,8 @@ export const WIDGETS: WidgetDefinition[] = [
   duelTower,
   trendChart,
   topShorts,
+  // Phase 6: „Short geht ab“-Alarme
+  teamRadio,
   // Phase 5: YouTube Analytics (blenden sich aus, wenn die Datenquelle keine Analytics hat)
   analyticsOverview,
   subsPerShort,

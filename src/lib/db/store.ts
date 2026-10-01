@@ -1,5 +1,6 @@
 import type { ChannelKind } from "@/config/channels";
-import type { AnalyticsDay, ChannelPoint, RankedShort } from "@/lib/data/types";
+import type { AlertCandidate, HourRateRow } from "@/lib/alerts/detect";
+import type { AlertItem, AnalyticsDay, ChannelPoint, RankedShort } from "@/lib/data/types";
 
 /**
  * Was die App von der Datenbank braucht – als Schnittstelle beschrieben.
@@ -141,6 +142,15 @@ export interface AnalyticsStore {
   getAnalyticsDaily(channelIds: string[], sinceDay: string): Promise<AnalyticsDayRow[]>;
   getAnalyticsVideos(channelIds: string[], period: string): Promise<AnalyticsVideoRow[]>;
   getBreakdowns(channelIds: string[], period: string): Promise<BreakdownRow[]>;
+}
+
+/** „Short geht ab“-Alarme (Phase 6). */
+export interface AlertStore {
+  getVideoHourRates(now: number): Promise<HourRateRow[]>;
+  /** Alarme seit `since`, neueste zuerst. */
+  getRecentAlerts(since: number, limit?: number): Promise<AlertItem[]>;
+  insertAlerts(rows: AlertCandidate[], at: number): Promise<number[]>;
+  markAlertsEmailed(ids: number[], at: number, error: string | null): Promise<void>;
 }
 
 /** Lesen (Dashboard). */

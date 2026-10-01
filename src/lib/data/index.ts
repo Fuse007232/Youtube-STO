@@ -33,6 +33,7 @@ export function getDataSource(): DataSource {
         // Noch leer? Dann solange die Zahlen direkt von YouTube zeigen.
         fallback: youtubeKey ? youtubeSource(youtubeKey) : undefined,
         analytics: store,
+        alerts: store,
       });
     }
     case "youtube": {

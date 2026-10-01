@@ -5,6 +5,6 @@ export default defineWidget({
   id: "top-shorts",
   title: "Top Shorts",
   description: "Rangliste der besten Shorts nach Aufrufen: letzte 24h, letzte 7 Tage oder insgesamt – filterbar nach Kanal.",
-  size: "full",
+  size: "large",
   component: TopShortsWidget,
 });

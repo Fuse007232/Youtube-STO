@@ -1,7 +1,7 @@
 import { CHANNELS, type ChannelConfig } from "@/config/channels";
 import { buildDashboard } from "@/lib/data/build-dashboard";
 import type { DashboardData, DataSource } from "@/lib/data/types";
-import type { AnalyticsStore, DashboardReader } from "@/lib/db/store";
+import type { AlertStore, AnalyticsStore, DashboardReader } from "@/lib/db/store";
 import { buildChannelAnalytics } from "@/lib/analytics/build";
 import { ANALYTICS_PERIOD } from "@/lib/analytics/run-analytics";
 import type { ChannelAnalytics, RankedShort } from "@/lib/data/types";
@@ -30,6 +30,8 @@ export interface DatabaseSourceOptions {
   fallback?: DataSource;
   /** Analytics lesen (Phase 5). Fehlt es, gibt es keine Analytics-Widgets. */
   analytics?: Pick<AnalyticsStore, "getConnections" | "getAnalyticsDaily" | "getAnalyticsVideos" | "getBreakdowns">;
+  /** Alarme lesen (Phase 6). Fehlt es, gibt es kein Boxenfunk-Widget. */
+  alerts?: Pick<AlertStore, "getRecentAlerts">;
 }
 
 export class DatabaseDataSource implements DataSource {
@@ -68,9 +70,15 @@ export class DatabaseDataSource implements DataSource {
       .filter((r) => quotaDayKey(r.startedAt) === today)
       .reduce((sum, r) => sum + r.units, 0);
 
-    const analytics = this.opts.analytics
-      ? await this.loadAnalytics(ids, rankings, now)
-      : null;
+    const [analytics, alerts] = await Promise.all([
+      this.opts.analytics ? this.loadAnalytics(ids, rankings, now) : Promise.resolve(null),
+      this.opts.alerts
+        ? this.opts.alerts.getRecentAlerts(now - 7 * 24 * HOUR_MS, 20).catch((e) => {
+            console.error("[alerts] Lesen fehlgeschlagen:", e);
+            return null;
+          })
+        : Promise.resolve(null),
+    ]);
 
     return buildDashboard({
       source: this.kind,
@@ -86,6 +94,7 @@ export class DatabaseDataSource implements DataSource {
       shorts: rankings.filter((s) => ids.includes(s.channelId)),
       quotaUsedToday,
       analytics,
+      alerts,
     });
   }
 

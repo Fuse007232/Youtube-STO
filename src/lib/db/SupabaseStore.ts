@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AlertCandidate, HourRateRow } from "@/lib/alerts/detect";
-import type { AlertItem, AnalyticsDay, ChannelPoint, RankedShort } from "@/lib/data/types";
+import type { AlertItem, AnalyticsDay, ChannelPoint, RankedShort, ShortHistoryPoint } from "@/lib/data/types";
 import type { FirstDayRow, HourlyActivityRow } from "@/lib/metrics/upload-timing";
 import type { ChannelConfig } from "@/config/channels";
 import type {
@@ -19,8 +19,10 @@ import type {
   RunMode,
   RunRow,
   RunTrigger,
+  ShortStore,
   SnapshotStore,
   TimingStore,
+  VideoRow,
   VideoSnapshotRow,
   VideoState,
   VideoUpsert,
@@ -43,7 +45,7 @@ async function inBatches<T>(rows: T[], fn: (batch: T[]) => Promise<void>): Promi
 }
 
 export class SupabaseStore
-  implements SnapshotStore, DashboardReader, AnalyticsStore, AlertStore, CompetitorStore, TimingStore
+  implements SnapshotStore, DashboardReader, AnalyticsStore, AlertStore, CompetitorStore, TimingStore, ShortStore
 {
   constructor(private readonly db: SupabaseClient) {}
 
@@ -588,5 +590,53 @@ export class SupabaseStore
       views: Number(r.views ?? 0),
       hours: Number(r.hours ?? 0),
     }));
+  }
+
+  // ───────────── Short-Steckbrief (Phase 7) ─────────────
+
+  async getVideo(id: string): Promise<VideoRow | null> {
+    const { data, error } = await this.db
+      .from("videos")
+      .select("id, channel_id, title, published_at, thumbnail_url, duration_sec, views, likes, comments, stats_updated_at, removed_at")
+      .eq("id", id)
+      .maybeSingle();
+    check(error, "Video lesen");
+    if (!data) return null;
+    return {
+      id: data.id,
+      channelId: data.channel_id,
+      title: data.title ?? "",
+      publishedAt: ms(data.published_at),
+      thumbnailUrl: data.thumbnail_url,
+      durationSec: Number(data.duration_sec ?? 0),
+      views: Number(data.views ?? 0),
+      likes: Number(data.likes ?? 0),
+      comments: Number(data.comments ?? 0),
+      statsAt: ms(data.stats_updated_at),
+      removedAt: ms(data.removed_at),
+    };
+  }
+
+  async getVideoHistory(id: string): Promise<ShortHistoryPoint[]> {
+    const out: ShortHistoryPoint[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await this.db
+        .from("video_snapshots")
+        .select("taken_at, views, likes, comments")
+        .eq("video_id", id)
+        .order("taken_at")
+        .range(from, from + PAGE - 1);
+      check(error, "Video-Verlauf lesen");
+      for (const r of data ?? []) {
+        out.push({
+          t: Date.parse(r.taken_at),
+          views: Number(r.views),
+          likes: r.likes === null ? null : Number(r.likes),
+          comments: r.comments === null ? null : Number(r.comments),
+        });
+      }
+      if (!data || data.length < PAGE) break;
+    }
+    return out;
   }
 }

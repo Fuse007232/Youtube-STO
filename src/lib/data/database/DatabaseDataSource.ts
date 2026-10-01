@@ -1,12 +1,23 @@
 import { CHANNELS, type ChannelConfig } from "@/config/channels";
 import { buildDashboard } from "@/lib/data/build-dashboard";
 import type { DashboardData, DataSource } from "@/lib/data/types";
-import type { AlertStore, AnalyticsStore, CompetitorStore, DashboardReader, TimingStore } from "@/lib/db/store";
+import type {
+  AlertStore,
+  AnalyticsStore,
+  CommentStore,
+  CompetitorStore,
+  DashboardReader,
+  ShortStore,
+  TimingStore,
+} from "@/lib/db/store";
+import { analyticsShortFrom } from "@/lib/analytics/build";
+import { channelRank, shortTiming } from "@/lib/metrics/short-detail";
+import { buildTimingSamples } from "@/lib/metrics/upload-timing";
 import { activityFromHourly, type ActivityProfile, type FirstDayRow } from "@/lib/metrics/upload-timing";
 import { COMPETITOR_CONFIG } from "@/config/competitors";
 import { buildChannelAnalytics } from "@/lib/analytics/build";
 import { ANALYTICS_PERIOD } from "@/lib/analytics/run-analytics";
-import type { ChannelAnalytics, RankedShort } from "@/lib/data/types";
+import type { ChannelAnalytics, RankedShort, ShortDetail } from "@/lib/data/types";
 import { HOUR_MS } from "@/lib/metrics/deltas";
 import { quotaDayKey } from "@/lib/youtube/quota";
 import { APP_CONFIG } from "@/config/app";
@@ -43,6 +54,10 @@ export interface DatabaseSourceOptions {
    * Schnappschüssen). Am besten ein Objekt, das über mehrere Anfragen lebt.
    */
   timingCache?: TimingCache;
+  /** Short-Steckbriefe lesen (Phase 7). Fehlt es, gibt es keine Steckbriefe. */
+  shorts?: ShortStore;
+  /** Kommentare lesen (Phase 7). Fehlt es, gibt es keinen Kommentar-Puls. */
+  comments?: Pick<CommentStore, "getRecentComments" | "getTopComments" | "getVideoComments">;
 }
 
 type TimingRaw = { firstDay: FirstDayRow[]; activity: Map<string, ActivityProfile> };
@@ -123,6 +138,65 @@ export class DatabaseDataSource implements DataSource {
       rivalShorts: rivals ? rankings.filter((s) => rivals.ids.has(s.channelId)) : undefined,
       timing,
     });
+  }
+
+  /** Steckbrief eines Shorts (eigener Kanal oder Konkurrent). */
+  async getShortDetail(id: string, now = Date.now()): Promise<ShortDetail | null> {
+    const store = this.opts.shorts;
+    if (!store) return null;
+    const video = await store.getVideo(id);
+    if (!video || video.publishedAt === null) return null;
+
+    const own = (this.opts.channels ?? CHANNELS).find((c) => c.id === video.channelId);
+    const channel =
+      own ?? (await this.opts.competitors?.getCompetitors())?.find((c) => c.id === video.channelId) ?? null;
+    if (!channel) return null;
+
+    const [history, rankings, firstDay, analyticsRows] = await Promise.all([
+      store.getVideoHistory(id),
+      this.reader.getVideoRankings(now),
+      this.opts.timing?.getFirstDayViews(24, now).catch(() => []) ?? Promise.resolve([]),
+      own && this.opts.analytics
+        ? this.opts.analytics.getAnalyticsVideos([channel.id], ANALYTICS_PERIOD).catch(() => [])
+        : Promise.resolve([]),
+    ]);
+
+    const channelShorts = rankings.filter((r) => r.channelId === channel.id);
+    const ranked = channelShorts.find((r) => r.id === id);
+    const short = {
+      id: video.id,
+      channelId: video.channelId,
+      title: video.title,
+      publishedAt: video.publishedAt,
+      thumbnailUrl: video.thumbnailUrl,
+      durationSec: video.durationSec,
+      views: video.views,
+      views24h: ranked?.views24h ?? 0,
+      views7d: ranked?.views7d ?? 0,
+      likes: video.likes,
+      comments: video.comments,
+      removed: video.removedAt !== null,
+      statsAt: video.statsAt,
+    };
+    const samples =
+      buildTimingSamples({ ownChannelIds: [channel.id], ownShorts: channelShorts, rivalShorts: [], firstDay, now }).own.get(
+        channel.id,
+      ) ?? [];
+    const analyticsRow = analyticsRows.find((r) => r.videoId === id);
+    const comments = (await this.opts.comments?.getVideoComments(id, 20).catch(() => [])) ?? [];
+
+    return {
+      short,
+      channel,
+      isOwn: Boolean(own),
+      rank: channelRank(ranked ? channelShorts : [...channelShorts, short], id),
+      history,
+      analytics: analyticsRow ? analyticsShortFrom(analyticsRow, short) : null,
+      timing: shortTiming(id, video.publishedAt, samples),
+      comments,
+      historyHours: history.length >= 2 ? (history[history.length - 1].t - history[0].t) / HOUR_MS : 0,
+      generatedAt: now,
+    };
   }
 
   /** Rohdaten der Boxenstrategie – je Schnappschuss nur einmal aus der Datenbank. */

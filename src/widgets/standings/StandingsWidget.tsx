@@ -114,9 +114,7 @@ export function StandingsWidget() {
                   <span className="min-w-0 text-xs">
                     {e.bestShort24h ? (
                       <a
-                        href={`https://www.youtube.com/shorts/${e.bestShort24h.id}`}
-                        target="_blank"
-                        rel="noreferrer"
+                        href={`/short/${e.bestShort24h.id}`}
                         className="block truncate text-ink-2 hover:text-ink"
                         title={e.bestShort24h.title}
                       >

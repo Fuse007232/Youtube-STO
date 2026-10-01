@@ -1,5 +1,5 @@
 import type { AlertCandidate, HourRateRow } from "@/lib/alerts/detect";
-import type { AlertItem, AnalyticsDay, ChannelPoint, RankedShort } from "@/lib/data/types";
+import type { AlertItem, AnalyticsDay, ChannelPoint, RankedShort, ShortHistoryPoint } from "@/lib/data/types";
 import type { ChannelConfig } from "@/config/channels";
 import { berlinWeekdayHour, type FirstDayRow, type HourlyActivityRow } from "@/lib/metrics/upload-timing";
 import type {
@@ -18,8 +18,10 @@ import type {
   RunMode,
   RunRow,
   RunTrigger,
+  ShortStore,
   SnapshotStore,
   TimingStore,
+  VideoRow,
   VideoSnapshotRow,
   VideoState,
   VideoUpsert,
@@ -29,7 +31,7 @@ const DAY = 24 * 3_600_000;
 
 /** Datenbank im Arbeitsspeicher – nur für Tests. Bildet die SQL-Logik nach. */
 export class MemoryStore
-  implements SnapshotStore, DashboardReader, AnalyticsStore, AlertStore, CompetitorStore, TimingStore
+  implements SnapshotStore, DashboardReader, AnalyticsStore, AlertStore, CompetitorStore, TimingStore, ShortStore
 {
   channels = new Map<string, ChannelRow>();
   channelSnapshots: ChannelSnapshotRow[] = [];
@@ -277,5 +279,30 @@ export class MemoryStore
       }
     }
     return [...sums.values()];
+  }
+
+  async getVideo(id: string): Promise<VideoRow | null> {
+    const v = this.videos.get(id);
+    if (!v) return null;
+    return {
+      id: v.id,
+      channelId: v.channelId,
+      title: v.title,
+      publishedAt: v.publishedAt,
+      thumbnailUrl: v.thumbnailUrl,
+      durationSec: v.durationSec,
+      views: v.views,
+      likes: v.likes,
+      comments: v.comments,
+      statsAt: v.statsAt,
+      removedAt: v.removedAt,
+    };
+  }
+
+  async getVideoHistory(id: string): Promise<ShortHistoryPoint[]> {
+    return this.videoSnapshots
+      .filter((s) => s.videoId === id)
+      .sort((a, b) => a.takenAt - b.takenAt)
+      .map((s) => ({ t: s.takenAt, views: s.views, likes: s.likes, comments: s.comments }));
   }
 }

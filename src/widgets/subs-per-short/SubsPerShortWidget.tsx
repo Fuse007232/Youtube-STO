@@ -88,9 +88,7 @@ export function SubsPerShortWidget() {
                     <td className="py-2 font-mono text-xs text-muted">{i + 1}</td>
                     <td className="py-2">
                       <a
-                        href={`https://www.youtube.com/shorts/${s.id}`}
-                        target="_blank"
-                        rel="noreferrer"
+                        href={`/short/${s.id}`}
                         className="flex items-center gap-3 hover:text-ink"
                       >
                         {s.thumbnailUrl ? (

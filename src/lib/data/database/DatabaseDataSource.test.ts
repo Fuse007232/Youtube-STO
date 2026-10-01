@@ -91,4 +91,30 @@ describe("DatabaseDataSource", () => {
     // Ohne Timing-Leser keine Auswertung
     expect((await new DatabaseDataSource(store, { channels: CH }).getDashboard(NOW + MIN)).uploadTiming).toBeNull();
   });
+
+  it("Short-Steckbrief: Verlauf, Rang und Zeitfenster aus der Datenbank", async () => {
+    const store = new MemoryStore();
+    const yt = createFakeYouTube();
+    const client = () => new YouTubeDataClient("test-key", yt.fetchFn);
+    await runSnapshot({ store, client: client(), trigger: "cron", channels: CH, now: NOW });
+    const v = VIDEOS.UU_GRA[0];
+    v.statistics!.viewCount = "51000";
+    try {
+      await runSnapshot({ store, client: client(), trigger: "cron", channels: CH, now: NOW + 3 * 60 * MIN, mode: "full" });
+      const source = new DatabaseDataSource(store, { channels: CH, shorts: store, timing: store });
+      const d = await source.getShortDetail(v.id!, NOW + 3 * 60 * MIN + MIN);
+      expect(d).not.toBeNull();
+      expect(d!.channel.code).toBe("GRA");
+      expect(d!.isOwn).toBe(true);
+      expect(d!.short.views).toBe(51_000);
+      expect(d!.history.map((p) => p.views)).toEqual([1000, 51_000]);
+      expect(d!.rank.d24).toBe(1);
+      expect(d!.historyHours).toBeCloseTo(3);
+      expect(await source.getShortDetail("gibt-es-nicht", NOW)).toBeNull();
+      // Ohne Steckbrief-Leser: keine Steckbriefe
+      expect(await new DatabaseDataSource(store, { channels: CH }).getShortDetail(v.id!, NOW)).toBeNull();
+    } finally {
+      v.statistics!.viewCount = "1000";
+    }
+  });
 });

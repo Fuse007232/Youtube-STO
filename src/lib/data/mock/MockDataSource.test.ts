@@ -40,4 +40,16 @@ describe("MockDataSource", () => {
     expect(data.topShorts["7d"].length).toBeGreaterThan(0);
     expect(data.topShorts.all.length).toBe(20);
   });
+
+  it("liefert Steckbriefe für eigene Shorts und Konkurrenz-Shorts", async () => {
+    const source = new MockDataSource();
+    const data = await source.getDashboard(now);
+    const top = data.topShorts.all[0];
+    const d = await source.getShortDetail(top.id, now);
+    expect(d?.short.id).toBe(top.id);
+    expect(d?.isOwn).toBe(true);
+    expect(d?.history.length).toBeGreaterThan(10);
+    expect(d?.comments.length).toBeGreaterThan(0);
+    expect(await source.getShortDetail("unbekannt", now)).toBeNull();
+  });
 });

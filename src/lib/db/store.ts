@@ -1,6 +1,13 @@
 import type { ChannelConfig, ChannelKind } from "@/config/channels";
 import type { AlertCandidate, HourRateRow } from "@/lib/alerts/detect";
-import type { AlertItem, AnalyticsDay, ChannelPoint, RankedShort } from "@/lib/data/types";
+import type {
+  AlertItem,
+  AnalyticsDay,
+  ChannelPoint,
+  CommentItem,
+  RankedShort,
+  ShortHistoryPoint,
+} from "@/lib/data/types";
 import type { FirstDayRow, HourlyActivityRow } from "@/lib/metrics/upload-timing";
 
 /**
@@ -174,6 +181,40 @@ export interface TimingStore {
   getFirstDayViews(hours: number, now: number): Promise<FirstDayRow[]>;
   /** Aufrufe + gemessene Zeit je Tagesstunde (Berlin) und Kanal (SQL `channel_hourly_activity`). */
   getHourlyActivity(days: number, now: number): Promise<HourlyActivityRow[]>;
+}
+
+/** Ein Video mit neuestem Stand (Short-Steckbrief). */
+export interface VideoRow {
+  id: string;
+  channelId: string;
+  title: string;
+  publishedAt: number | null;
+  thumbnailUrl: string | null;
+  durationSec: number;
+  views: number;
+  likes: number;
+  comments: number;
+  statsAt: number | null;
+  removedAt: number | null;
+}
+
+/** Short-Steckbrief (Phase 7). */
+export interface ShortStore {
+  getVideo(id: string): Promise<VideoRow | null>;
+  /** Alle gespeicherten Messpunkte eines Videos, aufsteigend. */
+  getVideoHistory(id: string): Promise<ShortHistoryPoint[]>;
+}
+
+/** Kommentar-Puls (Phase 7). */
+export interface CommentStore {
+  /** Neu anlegen oder Likes/Antworten aktualisieren. */
+  upsertComments(rows: CommentItem[], at: number): Promise<void>;
+  /** Neueste Kommentare (neueste zuerst). */
+  getRecentComments(channelIds: string[], limit: number): Promise<CommentItem[]>;
+  /** Meistgelikte Kommentare, die seit `since` geschrieben wurden. */
+  getTopComments(channelIds: string[], since: number, limit: number): Promise<CommentItem[]>;
+  /** Kommentare eines Shorts (meistgelikte zuerst). */
+  getVideoComments(videoId: string, limit: number): Promise<CommentItem[]>;
 }
 
 /** Lesen (Dashboard). */

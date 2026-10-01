@@ -261,9 +261,7 @@ function TestLog({ recent }: { recent: TimingRecent[] }) {
                 </td>
                 <td className="py-2 pr-2">
                   <a
-                    href={`https://www.youtube.com/shorts/${r.videoId}`}
-                    target="_blank"
-                    rel="noreferrer"
+                    href={`/short/${r.videoId}`}
                     className="block truncate text-ink hover:underline"
                     title={r.title}
                   >

@@ -63,7 +63,7 @@ function RadioItem({
 }) {
   const factor = a.baselineHour && a.baselineHour > 0 ? a.viewsLastHour / a.baselineHour : null;
   return (
-    <a href={`https://www.youtube.com/shorts/${a.videoId}`} target="_blank" rel="noreferrer" className="block">
+    <a href={`/short/${a.videoId}`} className="block">
       <div className="flex items-center justify-between gap-2 text-[11px] text-muted">
         <span className="inline-flex items-center gap-2">
           <span aria-hidden>{KIND[a.kind].icon}</span>

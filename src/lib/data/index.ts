@@ -46,6 +46,7 @@ export function getDataSource(): DataSource {
         competitors: store,
         timing: store,
         timingCache,
+        shorts: store,
       });
     }
     case "youtube": {

@@ -5,6 +5,27 @@ import { countryLabel, subsPer1k, toBreakdown, totalsFromDaily, trafficLabel } f
 /** Wie viele Shorts das Dashboard pro Kanal mit Analytics-Werten bekommt. */
 const SHORTS_LIMIT = 20;
 
+/** Eine gespeicherte Analytics-Zeile + Titel/Bild → Dashboard-Form eines Shorts. */
+export function analyticsShortFrom(
+  v: AnalyticsVideoRow,
+  info: Pick<RankedShort, "title" | "thumbnailUrl" | "publishedAt"> | undefined,
+): AnalyticsShort {
+  return {
+    id: v.videoId,
+    title: info?.title ?? "(Short nicht mehr in der Upload-Liste)",
+    thumbnailUrl: info?.thumbnailUrl ?? null,
+    publishedAt: info?.publishedAt ?? null,
+    views: v.views,
+    minutesWatched: v.minutesWatched,
+    avgViewSec: v.avgViewSec,
+    avgViewPct: v.avgViewPct,
+    subsGained: v.subsGained,
+    subsPer1k: subsPer1k(v.subsGained, v.views),
+    likes: v.likes,
+    shares: v.shares,
+  };
+}
+
 /**
  * Baut aus den gespeicherten Analytics-Daten die Dashboard-Form für einen Kanal.
  * Titel/Vorschaubilder kommen aus der Video-Tabelle (`videoInfo`).
@@ -20,23 +41,7 @@ export function buildChannelAnalytics(input: {
   const daily = [...input.daily].sort((a, b) => a.day.localeCompare(b.day));
   const shorts: AnalyticsShort[] = input.videos
     .filter((v) => v.channelId === input.channelId)
-    .map((v) => {
-      const info = input.videoInfo.get(v.videoId);
-      return {
-        id: v.videoId,
-        title: info?.title ?? "(Short nicht mehr in der Upload-Liste)",
-        thumbnailUrl: info?.thumbnailUrl ?? null,
-        publishedAt: info?.publishedAt ?? null,
-        views: v.views,
-        minutesWatched: v.minutesWatched,
-        avgViewSec: v.avgViewSec,
-        avgViewPct: v.avgViewPct,
-        subsGained: v.subsGained,
-        subsPer1k: subsPer1k(v.subsGained, v.views),
-        likes: v.likes,
-        shares: v.shares,
-      };
-    })
+    .map((v) => analyticsShortFrom(v, input.videoInfo.get(v.videoId)))
     .sort((a, b) => b.subsGained - a.subsGained || b.views - a.views)
     .slice(0, SHORTS_LIMIT);
 

@@ -1,9 +1,11 @@
 import { APP_CONFIG } from "@/config/app";
 import { CHANNELS, type ChannelConfig } from "@/config/channels";
 import { buildDashboard, type RawChannelData } from "@/lib/data/build-dashboard";
-import type { ChannelPoint, DataSource, RankedShort } from "@/lib/data/types";
+import type { ChannelPoint, DataSource, RankedShort, ShortDetail, ShortHistoryPoint } from "@/lib/data/types";
 import { HOUR_MS } from "@/lib/metrics/deltas";
-import { activityFromPoints, type FirstDayRow } from "@/lib/metrics/upload-timing";
+import { activityFromPoints, buildTimingSamples, type FirstDayRow } from "@/lib/metrics/upload-timing";
+import { channelRank, shortTiming } from "@/lib/metrics/short-detail";
+import { mockComments } from "./mock-comments";
 import { roundSubscribersLikeYouTube } from "@/lib/metrics/rounding";
 import { createRandom, gaussian, hashString } from "./random";
 import { mockAlerts, mockAnalytics } from "./mock-analytics";
@@ -170,6 +172,8 @@ interface ChannelSimulation {
   shorts: RankedShort[];
   /** Aufrufe nach 24 Std. für Shorts aus dem simulierten Messzeitraum. */
   firstDay: FirstDayRow[];
+  /** Interne Short-Modelle (für den Steckbrief-Verlauf). */
+  models: MockShort[];
 }
 
 function simulateChannel(channel: ChannelConfig, lastSnapshotAt: number): ChannelSimulation {
@@ -228,26 +232,35 @@ function simulateChannel(channel: ChannelConfig, lastSnapshotAt: number): Channe
     raw: { channel, points, subscribersRounded: true, avatarUrl: null },
     shorts: ranked,
     firstDay,
+    models: shorts,
   };
 }
 
 // Kleiner Zwischenspeicher: pro Schnappschuss-Zeitpunkt nur einmal rechnen.
 let cache: { key: number; sims: ChannelSimulation[]; rivals: ChannelSimulation[] } | null = null;
 
+function ensureCache(lastSnapshotAt: number) {
+  if (!cache || cache.key !== lastSnapshotAt) {
+    cache = {
+      key: lastSnapshotAt,
+      sims: CHANNELS.map((c) => simulateChannel(c, lastSnapshotAt)),
+      rivals: MOCK_RIVALS.map((r) => simulateChannel(r.channel, lastSnapshotAt)),
+    };
+  }
+  return cache;
+}
+
+const lastSnapshotFor = (now: number) => {
+  const stepMs = APP_CONFIG.snapshotIntervalMin * 60_000;
+  return Math.floor(now / stepMs) * stepMs;
+};
+
 export class MockDataSource implements DataSource {
   readonly kind = "mock" as const;
 
   async getDashboard(now = Date.now()) {
-    const stepMs = APP_CONFIG.snapshotIntervalMin * 60_000;
-    const lastSnapshotAt = Math.floor(now / stepMs) * stepMs;
-
-    if (!cache || cache.key !== lastSnapshotAt) {
-      cache = {
-        key: lastSnapshotAt,
-        sims: CHANNELS.map((c) => simulateChannel(c, lastSnapshotAt)),
-        rivals: MOCK_RIVALS.map((r) => simulateChannel(r.channel, lastSnapshotAt)),
-      };
-    }
+    const lastSnapshotAt = lastSnapshotFor(now);
+    const cache = ensureCache(lastSnapshotAt);
 
     const shorts = cache.sims.flatMap((s) => s.shorts);
     const analytics = CHANNELS.map((c) => mockAnalytics(c, shorts, lastSnapshotAt));
@@ -269,5 +282,46 @@ export class MockDataSource implements DataSource {
         activity: new Map(cache.sims.map((s) => [s.raw.channel.id, activityFromPoints(s.raw.points)])),
       },
     });
+  }
+
+  async getShortDetail(id: string, now = Date.now()): Promise<ShortDetail | null> {
+    const lastSnapshotAt = lastSnapshotFor(now);
+    const cache = ensureCache(lastSnapshotAt);
+    const sim = [...cache.sims, ...cache.rivals].find((x) => x.shorts.some((s) => s.id === id));
+    if (!sim) return null;
+    const channel = sim.raw.channel;
+    const ranked = sim.shorts.find((s) => s.id === id)!;
+    const model = sim.models.find((m) => m.id === id)!;
+    const isOwn = cache.sims.includes(sim);
+
+    // Messpunkte alle 15 Min. seit Beginn der simulierten Schnappschüsse
+    const stepMs = APP_CONFIG.snapshotIntervalMin * 60_000;
+    const first = Math.max(lastSnapshotAt - HISTORY_DAYS * DAY_MS, Math.ceil(model.publishedAt / stepMs) * stepMs);
+    const history: ShortHistoryPoint[] = [];
+    for (let t = first; t <= lastSnapshotAt; t += stepMs) {
+      const views = Math.round(viewsAt(model, t, activityHours(t)));
+      history.push({ t, views, likes: Math.round(views * model.likeRate), comments: Math.round(views * 0.0015) });
+    }
+
+    const samples =
+      buildTimingSamples({ ownChannelIds: [channel.id], ownShorts: sim.shorts, rivalShorts: [], firstDay: sim.firstDay, now }).own.get(
+        channel.id,
+      ) ?? [];
+    const analytics = isOwn
+      ? (mockAnalytics(channel, cache.sims.flatMap((s) => s.shorts), lastSnapshotAt).shorts.find((s) => s.id === id) ?? null)
+      : null;
+
+    return {
+      short: { ...ranked, comments: Math.round(ranked.views * 0.0015), removed: false, statsAt: lastSnapshotAt },
+      channel,
+      isOwn,
+      rank: channelRank(sim.shorts, id),
+      history,
+      analytics,
+      timing: shortTiming(id, ranked.publishedAt, samples),
+      comments: mockComments(ranked, lastSnapshotAt),
+      historyHours: history.length >= 2 ? (history[history.length - 1].t - history[0].t) / HOUR_MS : 0,
+      generatedAt: now,
+    };
   }
 }

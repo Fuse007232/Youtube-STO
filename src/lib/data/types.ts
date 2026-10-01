@@ -351,4 +351,54 @@ export interface DashboardData {
 export interface DataSource {
   kind: DataSourceKind;
   getDashboard(now?: number): Promise<DashboardData>;
+  /** Steckbrief eines Shorts (null = unbekannt). Fehlt die Methode, gibt es keine Steckbriefe. */
+  getShortDetail?(id: string, now?: number): Promise<ShortDetail | null>;
+}
+
+// ───────────── Short-Steckbrief (Phase 7) ─────────────
+
+export interface ShortHistoryPoint {
+  t: number;
+  views: number;
+  likes: number | null;
+  comments: number | null;
+}
+
+/** Ein YouTube-Kommentar (Kommentar-Puls, Phase 7). */
+export interface CommentItem {
+  id: string;
+  videoId: string;
+  channelId: string;
+  author: string;
+  text: string;
+  likes: number;
+  replies: number;
+  publishedAt: number;
+}
+
+export interface ShortDetail {
+  short: RankedShort & { comments: number; removed: boolean; statsAt: number | null };
+  channel: ChannelConfig;
+  /** Eigener Kanal (sonst Konkurrent – ohne Analytics). */
+  isOwn: boolean;
+  /** Platz im Kanal nach Aufrufen gesamt / 7 Tage / 24 Std. (1 = bester). */
+  rank: { all: number; d7: number; d24: number; of: number };
+  /** Gespeicherte Messpunkte (seit Beginn der Schnappschüsse), aufsteigend. */
+  history: ShortHistoryPoint[];
+  /** YouTube Analytics der letzten 28 Tage (null = nicht verbunden bzw. nicht unter den Top 200). */
+  analytics: AnalyticsShort | null;
+  /** Boxenstrategie: Zeitfenster dieses Shorts und sein Leistungs-Index. */
+  timing: {
+    weekday: number;
+    block: number;
+    index: number | null;
+    source: SampleSource | null;
+    /** Durchschnitt des Kanals in diesem Zeitfenster (Index) und Anzahl Shorts dort. */
+    blockScore: number | null;
+    blockN: number;
+  };
+  comments: CommentItem[];
+  /** Wie viel Verlauf gemessen ist (Stunden). */
+  historyHours: number;
+  generatedAt: number;
 }

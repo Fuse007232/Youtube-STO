@@ -1,6 +1,6 @@
 # Projektplan: YouTube-Shorts-Dashboard
 
-> Stand: Phase 5 gebaut (Google-Login + YouTube Analytics). Wartet auf Google-Zugangsdaten in Vercel und das Verbinden beider Kanäle.
+> Stand: Phase 5 fertig (beide Kanäle mit YouTube Analytics verbunden, 01.10.2026). Nächste Phase: 6 (Extras).
 > Dieses Dokument wird nach jeder Phase aktualisiert (Status-Tabelle unten).
 
 ---
@@ -29,7 +29,7 @@ YouTube hat keine Echtzeit-Schnittstelle. Deshalb holt ein Hintergrund-Job alle 
 | 2 | Echte Zahlen über die YouTube Data API | ✅ fertig (Zahlen geprüft) |
 | 3 | Supabase-Datenbank, Schnappschüsse, 24h-Duell | ✅ fertig (erste Schnappschüsse am 01.10.2026 ab 18:50) |
 | 4 | Veröffentlichung auf Vercel (inkl. Passwortschutz und Zeitplaner) | ✅ fertig (Login aktiv, Cron seit 01.10. 19:15) |
-| 5 | OAuth-Login + YouTube Analytics API | ✅ gebaut, wartet auf Google-Einrichtung + Verbinden |
+| 5 | OAuth-Login + YouTube Analytics API | ✅ fertig (beide Kanäle verbunden) |
 | 6 | Extras (Alarm, beste Upload-Zeit, Konkurrenz) | ⏳ offen |
 
 ---
@@ -299,7 +299,9 @@ Geschätzter Bedarf: deutlich unter 100 MB pro Jahr.
 
 **Fertig, wenn:** Beide Kanäle stehen auf „verbunden“ und die Analytics-Widgets zeigen Daten von vorgestern und früher.
 
-**Technik (gebaut):** Migration `0004_analytics.sql` (`oauth_connections`, `analytics_daily`, `analytics_videos`, `analytics_breakdowns`), Refresh-Tokens AES-256-GCM-verschlüsselt (`TOKEN_ENCRYPTION_KEY`), signierter OAuth-„state“, Prüfung „richtiges Google-Konto für diesen Kanal?“, Einstellungsseite `/settings`, Routen `/api/auth/youtube/start|callback|disconnect`, `/api/analytics/refresh`. Analytics kostet kein Data-API-Kontingent. 97 Tests.
+**Technik (gebaut):** Migration `0004_analytics.sql` (`oauth_connections`, `analytics_daily`, `analytics_videos`, `analytics_breakdowns`), Refresh-Tokens AES-256-GCM-verschlüsselt (`TOKEN_ENCRYPTION_KEY`), signierter OAuth-„state“, Prüfung „richtiges Google-Konto für diesen Kanal?“, Einstellungsseite `/settings`, Routen `/api/auth/youtube/start|callback|disconnect`, `/api/analytics/refresh`. Analytics kostet kein Data-API-Kontingent. 99 Tests.
+
+**Ergebnis:** Brainrotvault (17:46) und Granny Aura (17:52) am 01.10.2026 verbunden. Erster Abruf je 33 Tage (27.08.–28.09.), 200 bzw. 101 Shorts, Traffic-Quellen und Länder. Stolpersteine unterwegs: Branding-Seite braucht Datenschutz-Link (→ `/datenschutz`), `redirect_uri_mismatch` beim Öffnen über eine Vorschau-Adresse (→ immer feste Adresse), „This app is blocked“ beim zweiten, nicht-besitzenden Google-Konto (→ Konto ins Cloud-Projekt aufnehmen bzw. Testnutzer).
 
 ---
 

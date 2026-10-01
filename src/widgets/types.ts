@@ -26,3 +26,6 @@ export interface WidgetDefinition {
 export function defineWidget(def: WidgetDefinition): WidgetDefinition {
   return def;
 }
+
+/** Seiten des Dashboards: „Rennen“ (live, Startseite) und „Analyse“ (in Ruhe). */
+export type DashboardPageId = "race" | "analysis";

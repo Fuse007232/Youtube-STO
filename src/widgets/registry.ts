@@ -1,4 +1,4 @@
-import type { WidgetDefinition } from "./types";
+import type { DashboardPageId, WidgetDefinition } from "./types";
 import analyticsOverview from "./analytics-overview";
 import audienceOrigin from "./audience-origin";
 import channelOverview from "./channel-overview";
@@ -12,24 +12,35 @@ import trendChart from "./trend-chart";
 import uploadTiming from "./upload-timing";
 
 /**
- * ZENTRALE WIDGET-LISTE
- * Reihenfolge hier = Reihenfolge im Dashboard.
- * Neues Widget: Ordner in src/widgets/ anlegen, oben importieren, hier eintragen. Fertig.
+ * ZENTRALE WIDGET-LISTE – je Seite.
+ * Reihenfolge hier = Reihenfolge auf der Seite.
+ * Neues Widget: Ordner in src/widgets/ anlegen, oben importieren, hier auf einer
+ * (oder mehreren) Seiten eintragen. Fertig.
  */
-export const WIDGETS: WidgetDefinition[] = [
-  statusBar,
-  channelOverview,
-  duelTower,
-  trendChart,
-  // Phase 6.3: Konkurrenz-Vergleich
-  standings,
-  topShorts,
-  // Phase 6: „Short geht ab“-Alarme
-  teamRadio,
-  // Phase 6.2: beste Upload-Uhrzeit
-  uploadTiming,
-  // Phase 5: YouTube Analytics (blenden sich aus, wenn die Datenquelle keine Analytics hat)
-  analyticsOverview,
-  subsPerShort,
-  audienceOrigin,
-];
+export const PAGES: Record<DashboardPageId, WidgetDefinition[]> = {
+  // „Rennen“: was gerade passiert (Startseite)
+  race: [
+    statusBar,
+    channelOverview,
+    duelTower,
+    trendChart,
+    // Phase 6.3: Konkurrenz-Vergleich
+    standings,
+    topShorts,
+    // Phase 6: „Short geht ab“-Alarme
+    teamRadio,
+  ],
+  // „Analyse“: Auswertungen in Ruhe (/analyse)
+  analysis: [
+    statusBar,
+    // Phase 6.2: beste Upload-Uhrzeit
+    uploadTiming,
+    // Phase 5: YouTube Analytics (blenden sich aus, wenn die Datenquelle keine Analytics hat)
+    analyticsOverview,
+    subsPerShort,
+    audienceOrigin,
+  ],
+};
+
+/** Alle Widgets (jedes nur einmal). */
+export const WIDGETS: WidgetDefinition[] = [...new Set(Object.values(PAGES).flat())];

@@ -11,7 +11,7 @@ import { WidgetCard } from "@/components/ui/WidgetCard";
 import { APP_CONFIG } from "@/config/app";
 import type { ChannelConfig } from "@/config/channels";
 import type { RankedShort, RankingPeriod } from "@/lib/data/types";
-import { formatAgo, formatCompact, formatDuration } from "@/lib/format";
+import { formatAgo, formatCompact, formatDuration, formatWindowLabel, noHistoryHint } from "@/lib/format";
 import { metricFor, rankShorts } from "@/lib/metrics/ranking";
 
 const PERIOD_LABEL: Record<RankingPeriod, string> = {
@@ -26,7 +26,13 @@ export function TopShortsWidget() {
   const [chosenPeriod, setPeriod] = useState<RankingPeriod>("24h");
   // Ohne Verlauf gibt es nur die Gesamt-Rangliste.
   const period: RankingPeriod = data.hasHistory ? chosenPeriod : "all";
-  const historyHint = data.hasHistory ? undefined : "Kommt mit der Datenbank (Phase 3)";
+  const historyHint = data.hasHistory ? undefined : `Verfügbar ${noHistoryHint(data.source)}`;
+  // Weniger gemessen als der Zeitraum lang ist → ehrlich „seit …“ dazuschreiben.
+  const windowHours = period === "24h" ? 24 : period === "7d" ? 168 : 0;
+  const subtitle =
+    windowHours > 0 && data.historyHours < windowHours
+      ? `${PERIOD_LABEL[period]} · gemessen ${formatWindowLabel(data.historyHours, windowHours)}`
+      : PERIOD_LABEL[period];
   const [channelFilter, setChannelFilter] = useState<string>("all");
 
   const channels = data.channels.map((c) => c.channel);
@@ -40,7 +46,7 @@ export function TopShortsWidget() {
   return (
     <WidgetCard
       title="Top Shorts"
-      subtitle={PERIOD_LABEL[period]}
+      subtitle={subtitle}
       actions={
         <>
           <SegmentedControl
@@ -79,6 +85,7 @@ export function TopShortsWidget() {
               now={now}
               linkable={!data.isDemo}
               hasHistory={data.hasHistory}
+              windowLabel={formatWindowLabel(data.historyHours)}
             />
           ))}
         </AnimatePresence>
@@ -100,6 +107,7 @@ function ShortRow({
   now,
   linkable,
   hasHistory,
+  windowLabel,
 }: {
   short: RankedShort;
   position: number;
@@ -110,13 +118,14 @@ function ShortRow({
   now: number;
   linkable: boolean;
   hasHistory: boolean;
+  windowLabel: string;
 }) {
   const color = channel?.color ?? "var(--muted)";
   const secondary =
     period !== "all"
       ? `${formatCompact(short.views)} gesamt`
       : hasHistory
-        ? `+${formatCompact(short.views24h)} in 24h`
+        ? `+${formatCompact(short.views24h)} ${windowLabel}`
         : short.likes > 0
           ? `${formatCompact(short.likes)} Likes`
           : "";

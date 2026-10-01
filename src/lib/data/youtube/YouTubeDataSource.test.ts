@@ -68,6 +68,10 @@ describe("resolveDataSourceKind", () => {
   it("Beispieldaten ohne Schlüssel", () => expect(resolveDataSourceKind({})).toBe("mock"));
   it("YouTube automatisch mit Schlüssel", () =>
     expect(resolveDataSourceKind({ YOUTUBE_API_KEY: "x" })).toBe("youtube"));
+  it("Datenbank, sobald Supabase eingerichtet ist", () =>
+    expect(
+      resolveDataSourceKind({ YOUTUBE_API_KEY: "x", SUPABASE_URL: "u", SUPABASE_SECRET_KEY: "k" }),
+    ).toBe("database"));
   it("DATA_SOURCE hat Vorrang", () =>
     expect(resolveDataSourceKind({ YOUTUBE_API_KEY: "x", DATA_SOURCE: "mock" })).toBe("mock"));
 });

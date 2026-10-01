@@ -2,7 +2,7 @@
 
 import { useDashboardData, useNow } from "@/components/dashboard/DashboardDataProvider";
 import { LiveDot } from "@/components/ui/LiveDot";
-import { formatAgo, formatClock, formatIn, formatNumber } from "@/lib/format";
+import { formatAgo, formatClock, formatIn, formatNumber, noHistoryHint } from "@/lib/format";
 
 const SOURCE_LABEL = {
   mock: "Beispieldaten",
@@ -52,8 +52,8 @@ export function StatusBarWidget() {
           <span className="text-ink">≈</span> Aufrufe laufen als Hochrechnung weiter
         </span>
       ) : (
-        <span title="Für 24h-Werte, Kurven und Hochrechnung braucht es gespeicherte Schnappschüsse (Datenbank, Phase 3).">
-          24h-Werte &amp; Hochrechnung folgen mit der Datenbank (Phase 3)
+        <span title="Für 24h-Werte, Kurven und Hochrechnung braucht es mindestens zwei gespeicherte Schnappschüsse.">
+          24h-Werte &amp; Hochrechnung {noHistoryHint(data.source)}
         </span>
       )}
 
@@ -61,7 +61,7 @@ export function StatusBarWidget() {
         API-Kontingent heute:{" "}
         <b
           className="num font-semibold text-ink"
-          title="Verbrauchte YouTube-Einheiten seit 9 Uhr (Reset um Mitternacht Kalifornien). Bis Phase 3 ein Näherungswert pro Server-Instanz."
+          title="Verbrauchte YouTube-Einheiten seit 9 Uhr (Reset um Mitternacht Kalifornien). Mit Datenbank: alle protokollierten Läufe; ohne: Näherungswert pro Server-Instanz."
         >
           {data.quota.usedToday === null
             ? "–"

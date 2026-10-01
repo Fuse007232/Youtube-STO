@@ -46,6 +46,7 @@ export interface RawDashboardInput {
 function summarize(raw: RawChannelData): ChannelSummary | null {
   const { points } = raw;
   if (points.length === 0) return null;
+  const first = points[0];
   const last = points[points.length - 1];
 
   const videosDelta = (endT: number) => {
@@ -53,8 +54,13 @@ function summarize(raw: RawChannelData): ChannelSummary | null {
     const start = pointAt(points, endT - 24 * HOUR_MS);
     return end && start ? end.videoCount - start.videoCount : null;
   };
+  const videosSinceFirst = last.videoCount - first.videoCount;
 
-  const d24 = windowDelta(points, last.t, 24);
+  // Gibt es noch keine vollen 24 Stunden, zählt der Gewinn „seit Messbeginn“.
+  const d24 = windowDelta(points, last.t, 24) ?? {
+    views: last.views - first.views,
+    subscribers: last.subscribers - first.subscribers,
+  };
   const prev = windowDelta(points, last.t - 24 * HOUR_MS, 24);
   const prevVideos = videosDelta(last.t - 24 * HOUR_MS);
 
@@ -68,9 +74,9 @@ function summarize(raw: RawChannelData): ChannelSummary | null {
     },
     subscribersRounded: raw.subscribersRounded,
     delta24h: {
-      views: d24?.views ?? 0,
-      subscribers: d24?.subscribers ?? 0,
-      videos: videosDelta(last.t) ?? 0,
+      views: d24.views,
+      subscribers: d24.subscribers,
+      videos: videosDelta(last.t) ?? videosSinceFirst,
     },
     prevDelta24h:
       prev && prevVideos !== null ? { ...prev, videos: prevVideos } : null,
@@ -94,6 +100,15 @@ export function buildDashboard(input: RawDashboardInput): DashboardData {
     ...channels.map((c) => c.history24h[c.history24h.length - 1]?.t ?? 0),
   );
 
+  const historyHours =
+    channels.length === 0
+      ? 0
+      : Math.min(
+          ...input.channels.map((c) =>
+            c.points.length > 1 ? (c.points[c.points.length - 1].t - c.points[0].t) / HOUR_MS : 0,
+          ),
+        );
+
   const limit = APP_CONFIG.topShortsLimit;
   // Ohne Verlauf sind 24h-/7-Tage-Ranglisten nicht berechenbar → leer lassen statt raten.
   const withHistory = (period: "24h" | "7d") =>
@@ -102,6 +117,7 @@ export function buildDashboard(input: RawDashboardInput): DashboardData {
     source: input.source,
     isDemo: input.isDemo,
     hasHistory: input.hasHistory,
+    historyHours,
     generatedAt: input.now,
     lastSnapshotAt,
     snapshotIntervalMin: input.refreshIntervalMin ?? APP_CONFIG.snapshotIntervalMin,

@@ -10,7 +10,8 @@ Privates Dashboard für die 2 YouTube-Shorts-Kanäle des Nutzers: beide Kanäle 
 
 - Kanäle: **Bra1nrotvault** (`UCJtW0caGhgqEWxNh2HcsGPg`, Kürzel BRV, YouTube-Titel „Brainrot Vault“, Stand 01.10.2026: ~103K Abos, ~213 Mio. Aufrufe, 332 Shorts) und **Granny Aura** (`UCSxDp-sHQ49VwIz0Ix9fusA`, GRA, ~28,7K Abos, ~45 Mio. Aufrufe, 101 Shorts). Zwei **verschiedene** Google-Konten (keine Brand-Konten). Nur Shorts, keine langen Videos.
 - Vollständiger Plan, Phasen, Zugangsdaten, Klick-Anleitungen und Entscheidungen: **`docs/PLAN.md`**
-- **Aktueller Stand:** Phase 1 fertig (Design abgenommen). Phase 2 fertig: echte Zahlen laufen auf Vercel (`YOUTUBE_API_KEY` ist in Vercel und in der Claude-Cloud-Umgebung eingetragen; in der Cloud erst ab einer neuen Session sichtbar). ~21 Einheiten pro Abruf. Nächste Phase: 3 (Supabase + Schnappschüsse).
+- **Aktueller Stand:** Phase 3 gebaut (Datenbank, Schnappschüsse, 24h-Duell); wartet darauf, dass der Nutzer `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `CRON_SECRET` in Vercel einträgt. Danach Phase 4 (Zeitplaner alle 15 Min. + Passwortschutz). Phase 1 fertig (Design abgenommen). Phase 2 fertig: echte Zahlen laufen auf Vercel (`YOUTUBE_API_KEY` ist in Vercel und in der Claude-Cloud-Umgebung eingetragen; in der Cloud erst ab einer neuen Session sichtbar). ~21 Einheiten pro Abruf. Nächste Phase: 3 (Supabase + Schnappschüsse).
+- **Supabase:** Projekt `youtube-dashboard`, ID/ref `kdqxslwojkvhffhjctrv`, Region eu-central-1, URL `https://kdqxslwojkvhffhjctrv.supabase.co` (Organisation „Fuse007232's Org“). Das andere Projekt „Kanalpult“ gehört NICHT zu diesem Dashboard – nicht anfassen. Das Supabase-MCP hat Zugriff (Migrationen, SQL, Advisors); geheime Schlüssel liefert es nicht.
 - **Vercel:** Projekt `youtube-sto` (Team-Scope `felixpensel3-3483s-projects`). Der Branch `claude/youtube-shorts-dashboard-c6jkd9` ist dort die **Production**-Branch. Das Vercel-MCP kann Deployments lesen (`list_deployments` mit `projectId` ohne `teamId`); team-gebundene Aufrufe (z. B. Umgebungsvariablen, `web_fetch_vercel_url`) sind nicht autorisiert. **Alle Vercel-Adressen (auch Production) sind durch „Vercel Authentication“ geschützt** → nur der eingeloggte Nutzer sieht das Dashboard; `curl` von hier liefert 302. Für Phase 4 beachten: Supabase Cron braucht dann einen „Protection Bypass for Automation“-Header oder der Schutz wird durch den eigenen Passwortschutz ersetzt.
 
 ## Zusammenarbeit (wichtig)
@@ -19,7 +20,7 @@ Privates Dashboard für die 2 YouTube-Shorts-Kanäle des Nutzers: beide Kanäle 
 - **Phase für Phase** arbeiten. Nach jeder Phase: Zusammenfassung (was gebaut, wie testen, was kommt). Nach jedem fertigen Schritt committen (verständliche Nachricht).
 - Wenn der Nutzer gebraucht wird: anhalten, Klick-für-Klick-Anleitung geben, auf Rückmeldung warten.
 - Unklar? **Fragen statt raten.**
-- Arbeits-Branch: `claude/youtube-shorts-dashboard-c6jkd9`. Vercel ist mit dem Repo verbunden und baut bei jedem Push automatisch. `vercel.json` legt `framework: nextjs` fest (das Vercel-Projekt wurde angelegt, als das Repo noch leer war, und stand auf „Other“). Node-Version: `engines.node = 22.x`.
+- Arbeits-Branch: `claude/youtube-shorts-dashboard-c6jkd9`. Vercel ist mit dem Repo verbunden und baut bei jedem Push automatisch. `vercel.json` legt `framework: nextjs` fest (das Vercel-Projekt wurde angelegt, als das Repo noch leer war, und stand auf „Other“). Node-Version: `engines.node = 22.x`. `regions: ["fra1"]` (Frankfurt, nah an Supabase).
 
 ## Feste Regeln
 
@@ -57,9 +58,15 @@ Achtung: Prozesse nicht mit `pkill -f …` oder einem `grep`-Muster beenden, das
 
 - `src/lib/data/types.ts`: **die** gemeinsame Datenform (`DashboardData`, `ChannelSummary`, `RankedShort`, `DataSource`).
 - `src/lib/data/build-dashboard.ts`: Rohdaten → `DashboardData` (24h-Gewinne, Vortag, Bestwert, Tempo, Ranglisten). Gilt für alle Quellen.
-- `src/lib/data/index.ts`: `getDataSource()`; Auswahl in `resolve-kind.ts`: `DATA_SOURCE` falls gesetzt, sonst automatisch `youtube` wenn `YOUTUBE_API_KEY` da ist, sonst `mock`.
+- `src/lib/data/index.ts`: `getDataSource()` verdrahtet die Quellen; Auswahl in `resolve-kind.ts`: `DATA_SOURCE` falls gesetzt, sonst `database` (wenn `SUPABASE_URL` + `SUPABASE_SECRET_KEY`), sonst `youtube` (wenn `YOUTUBE_API_KEY`), sonst `mock`.
+- `src/lib/data/database/DatabaseDataSource.ts` (Phase 3): liest 8 Tage Kanal-Verlauf + `video_rankings()` + Läufe (Kontingent). Kein Schnappschuss → Fallback YouTube direkt. Letzter Schnappschuss > 18 Min. alt → `onStale` (Selbstauslöser per `after()` → `runSnapshotIfDue`).
+- `src/lib/db/`: `store.ts` (Schnittstellen `SnapshotStore`/`DashboardReader`), `SupabaseStore.ts` (Umsetzung, liest in 1000er-Seiten), `supabase.ts` (Server-Client, `server-only`), `__fixtures__/MemoryStore.ts` (Test-Datenbank, bildet die SQL-Regeln nach).
+- `src/lib/snapshot/run-snapshot.ts`: ein Lauf. `quick` (Kanäle + neueste 50 Uploads + Shorts der letzten 7 Tage) oder `full` (alle Shorts, höchstens stündlich); Video-Schnappschuss nur bei geänderten Aufrufen; entfernte Videos markieren; nach `full` 1× täglich verdichten. `runSnapshotIfDue` überspringt, wenn in den letzten 12 Min. schon ein Lauf startete.
+- `src/app/api/cron/snapshot/route.ts`: GET/POST, `Authorization: Bearer <CRON_SECRET>`, optional `?mode=quick|full`.
+- `supabase/migrations/`: SQL-Migrationen. Neue Migrationen als nächste Nummer anlegen UND per Supabase-MCP `apply_migration` ausführen (gleicher Inhalt).
 - `src/lib/data/youtube/YouTubeDataSource.ts` (Phase 2): holt Kanäle + alle Uploads + Video-Statistiken (Kanäle und 50er-Pakete parallel), Zwischenspeicher pro Instanz: <10 Min. frisch, bis 1 Std. „stale-while-revalidate“ (alte Zahlen sofort, Auffrischen im Hintergrund über Next.js `after()`), `hasHistory: false` (nur aktueller Stand).
 - `src/lib/youtube/`: `client.ts` (channels/playlistItems/videos, 50er-Pakete, zählt Einheiten), `parse.ts`, `errors.ts` (deutsche Fehlertexte), `quota.ts` (Tageszähler, Reset Mitternacht Pazifik). Test-Doppel: `__fixtures__/fake-youtube.ts`.
+- **`historyHours`** in `DashboardData`: wie viele Stunden Verlauf es gibt. Unter 24 → Widgets beschriften „seit X Std.“ (`formatWindowLabel`).
 - **`hasHistory`** in `DashboardData`: false = keine Schnappschüsse → Duell-Tower zeigt Gesamtstand, Rennverlauf zeigt Platzhalter, Top-Shorts nur „Gesamt“, Kanal-Karten ohne 24h-Werte. Neue Widgets müssen diesen Fall ebenfalls behandeln.
 - `src/lib/data/mock/`: vorhersagbare Beispieldaten (fester Zufall, Upload-Plan, Tagesrhythmus, YouTube-Rundung der Abos). Bleibt dauerhaft für Design-Tests (`DATA_SOURCE=mock`).
 - **Hochrechnung:** `useLiveChannel()` / `useLiveChannels()` im Provider: Aufrufe = letzter Schnappschuss + Tempo × vergangene Zeit (gedeckelt auf 1,5 × Intervall). Abos nie hochgerechnet.
@@ -78,6 +85,10 @@ src/config/app.ts           Zeitzone, Intervalle, Kontingent, Listenlänge
 src/config/channels.ts      Kanäle (ID, Name, Kürzel, Teamfarbe, kind)
 src/lib/data/               Datenform, Datenquellen (mock/, youtube/), buildDashboard, resolve-kind
 src/lib/youtube/            YouTube-Data-API-Client, Parser, Fehlertexte, Kontingent-Zähler
+src/lib/db/                 Datenbank-Schnittstelle + Supabase-Umsetzung
+src/lib/snapshot/           Schnappschuss-Lauf (quick/full, Verdichtung)
+src/app/api/cron/snapshot/  Endpunkt für den Zeitplaner
+supabase/migrations/        SQL-Migrationen (über Supabase-MCP angewendet)
 src/components/dashboard/SetupError.tsx  Fehlerseite, wenn Daten nicht ladbar sind
 src/app/loading.tsx         Ladebildschirm („Formationsrunde“, F1-Startampel)
 src/lib/metrics/            Reine Rechenfunktionen + Tests
@@ -86,7 +97,7 @@ src/widgets/                registry.ts, types.ts, je Widget ein Ordner
 docs/PLAN.md                Projektplan
 ```
 
-Geplant: `src/lib/db/` + `supabase/migrations/` (Phase 3), `src/app/api/cron/snapshot/` (Phase 3), `src/app/api/auth/youtube/` (Phase 5), `src/lib/alerts/` (Phase 6).
+Geplant: `src/app/api/auth/youtube/` (Phase 5), `src/lib/alerts/` (Phase 6).
 
 ## Widgets
 

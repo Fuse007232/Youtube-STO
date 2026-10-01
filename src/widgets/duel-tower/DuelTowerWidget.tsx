@@ -7,7 +7,7 @@ import { LiveDot } from "@/components/ui/LiveDot";
 import { WidgetCard } from "@/components/ui/WidgetCard";
 import type { ChannelConfig } from "@/config/channels";
 import type { ChannelSummary } from "@/lib/data/types";
-import { formatSigned } from "@/lib/format";
+import { formatClock, formatSigned, formatWindowLabel, noHistoryHint } from "@/lib/format";
 import { sectorStatus, type SectorStatus } from "@/lib/metrics/sector";
 
 interface Entry {
@@ -52,8 +52,11 @@ export function DuelTowerWidget() {
     status: "neutral",
   }));
 
-  // Ohne Verlauf (Phase 2): Duell über die Gesamtwerte statt über 24 Stunden.
+  // Ohne Verlauf: Duell über die Gesamtwerte statt über 24 Stunden.
   const totalsMode = !data.hasHistory;
+  // Weniger als 24h gemessen: Gewinne gelten „seit Messbeginn“.
+  const partial = data.hasHistory && data.historyHours < 24;
+  const fullAt = data.lastSnapshotAt + (24 - data.historyHours) * 3_600_000;
   const sections = totalsMode
     ? [
         {
@@ -103,11 +106,19 @@ export function DuelTowerWidget() {
 
   return (
     <WidgetCard
-      title={totalsMode ? "Duell · Gesamtstand" : "Duell · Letzte 24h"}
+      title={
+        totalsMode
+          ? "Duell · Gesamtstand"
+          : partial
+            ? `Duell · ${formatWindowLabel(data.historyHours)}`
+            : "Duell · Letzte 24h"
+      }
       subtitle={
         totalsMode
-          ? "Echte Gesamtzahlen · 24h-Duell ab Phase 3"
-          : "Gleitend: die letzten 24 Stunden bis jetzt"
+          ? `Echte Gesamtzahlen · 24h-Duell ${noHistoryHint(data.source)}`
+          : partial
+            ? `Messung läuft · volle 24h ab ${formatClock(fullAt)} Uhr`
+            : "Gleitend: die letzten 24 Stunden bis jetzt"
       }
       actions={
         <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-2">

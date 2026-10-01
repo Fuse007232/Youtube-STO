@@ -8,7 +8,7 @@ import {
 } from "@/components/dashboard/DashboardDataProvider";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import type { ChannelSummary } from "@/lib/data/types";
-import { formatSigned } from "@/lib/format";
+import { formatSigned, formatWindowLabel } from "@/lib/format";
 
 export function ChannelOverviewWidget() {
   const { data } = useDashboardData();
@@ -19,6 +19,7 @@ export function ChannelOverviewWidget() {
           key={c.channel.id}
           summary={c}
           hasHistory={data.hasHistory}
+          windowLabel={formatWindowLabel(data.historyHours)}
         />
       ))}
     </div>
@@ -28,9 +29,11 @@ export function ChannelOverviewWidget() {
 function ChannelCard({
   summary,
   hasHistory,
+  windowLabel,
 }: {
   summary: ChannelSummary;
   hasHistory: boolean;
+  windowLabel: string;
 }) {
   const live = useLiveChannel(summary);
   const { channel, current, delta24h, subscribersRounded } = summary;
@@ -129,6 +132,7 @@ function ChannelCard({
             hint={subscribersRounded ? "öffentlich gerundet" : undefined}
             value={<AnimatedNumber value={current.subscribers} />}
             delta={hasHistory ? delta24h.subscribers : null}
+            windowLabel={windowLabel}
           />
           <Stat
             label="Aufrufe gesamt"
@@ -136,11 +140,13 @@ function ChannelCard({
             value={<AnimatedNumber value={live.views} format="compact" />}
             title={Math.round(live.views).toLocaleString("de-DE")}
             delta={hasHistory ? live.views24h : null}
+            windowLabel={windowLabel}
           />
           <Stat
             label="Shorts"
             value={<AnimatedNumber value={current.videoCount} />}
             delta={hasHistory ? delta24h.videos : null}
+            windowLabel={windowLabel}
           />
         </dl>
       </div>
@@ -154,6 +160,7 @@ function Stat({
   delta,
   hint,
   title,
+  windowLabel = "in 24h",
 }: {
   label: string;
   value: React.ReactNode;
@@ -161,6 +168,7 @@ function Stat({
   delta: number | null;
   hint?: string;
   title?: string;
+  windowLabel?: string;
 }) {
   return (
     <div className="min-w-0">
@@ -175,13 +183,13 @@ function Stat({
       </dd>
       <dd className="mt-1 text-xs text-ink-2">
         {delta === null ? (
-          <span className="text-muted">24h-Wert ab Phase 3</span>
+          <span className="text-muted">24h-Wert folgt</span>
         ) : (
           <>
             <span className="num font-semibold">
               {formatSigned(delta, Math.abs(delta) >= 10_000)}
             </span>{" "}
-            <span className="text-muted">in 24h</span>
+            <span className="text-muted">{windowLabel}</span>
           </>
         )}
       </dd>

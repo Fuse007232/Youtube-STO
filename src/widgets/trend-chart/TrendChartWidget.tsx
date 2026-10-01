@@ -201,8 +201,8 @@ function NoHistoryYet() {
         </svg>
         <p className="text-sm font-medium text-ink">Die Kurven starten mit der Datenbank</p>
         <p className="max-w-md text-xs text-muted">
-          YouTube liefert immer nur den aktuellen Stand. Für den Rennverlauf speichern wir ab Phase 3
-          alle 15 Minuten einen Schnappschuss – nach wenigen Stunden erscheinen hier die ersten Kurven,
+          YouTube liefert immer nur den aktuellen Stand. Für den Rennverlauf speichert die Datenbank
+          alle 15 Minuten einen Schnappschuss – ab dem zweiten erscheinen hier die ersten Kurven,
           nach 24 Stunden das volle Duell.
         </p>
       </div>

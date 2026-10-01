@@ -2,8 +2,8 @@
  * Zählt verbrauchte API-Einheiten pro Tag.
  * YouTube setzt das Kontingent um Mitternacht pazifischer Zeit zurück (9 Uhr in Deutschland).
  *
- * Hinweis: Bis Phase 3 zählt das nur innerhalb einer laufenden Server-Instanz
- * (Näherungswert). Ab Phase 3 wird der Verbrauch in der Datenbank protokolliert.
+ * Hinweis: Das zählt nur innerhalb einer laufenden Server-Instanz (Näherungswert, für die
+ * Quelle „youtube“). Mit Datenbank wird der Verbrauch je Lauf in `snapshot_runs` protokolliert.
  */
 const pacificDay = new Intl.DateTimeFormat("en-CA", {
   timeZone: "America/Los_Angeles",

@@ -1,6 +1,6 @@
 # Projektplan: YouTube-Shorts-Dashboard
 
-> Stand: Phase 2 fertig (echte Zahlen laufen auf Vercel). Nächste Phase: 3 (Supabase-Datenbank, Schnappschüsse, 24h-Duell).
+> Stand: Phase 3 gebaut (Datenbank + Schnappschüsse + 24h-Duell). Wartet auf die Supabase-Schlüssel in Vercel.
 > Dieses Dokument wird nach jeder Phase aktualisiert (Status-Tabelle unten).
 
 ---
@@ -27,7 +27,7 @@ YouTube hat keine Echtzeit-Schnittstelle. Deshalb holt ein Hintergrund-Job alle 
 | 0 | Planung (dieses Dokument) | ✅ fertig |
 | 1 | Grundgerüst + Dashboard mit Beispieldaten | ✅ fertig (Design abgenommen) |
 | 2 | Echte Zahlen über die YouTube Data API | ✅ fertig (Zahlen geprüft) |
-| 3 | Supabase-Datenbank, Schnappschüsse, 24h-Duell | ⏳ offen |
+| 3 | Supabase-Datenbank, Schnappschüsse, 24h-Duell | ✅ gebaut, wartet auf Schlüssel in Vercel |
 | 4 | Veröffentlichung auf Vercel (inkl. Passwortschutz und Zeitplaner) | ⏳ offen |
 | 5 | OAuth-Login + YouTube Analytics API | ⏳ offen |
 | 6 | Extras (Alarm, beste Upload-Zeit, Konkurrenz) | ⏳ offen |
@@ -235,11 +235,21 @@ Geschätzter Bedarf: deutlich unter 100 MB pro Jahr.
 6. Snapshots in dieser Phase **von Hand auslösen** (ich kann das aus der Cloud-Session, sobald die Schlüssel dort hinterlegt sind). Der automatische 15-Minuten-Takt kommt in Phase 4, weil er eine feste öffentliche Adresse braucht.
 
 **Wo ich dich brauche:**
-- Supabase-Projekt anlegen → **Anleitung E**
-- SQL-Datei im Supabase-Editor ausführen → **Anleitung F** (ich sage dir genau welche Datei)
-- Schlüssel hinterlegen (Anleitung C + D)
+- ~~Supabase-Projekt anlegen~~ und ~~SQL ausführen~~ → hat Claude über die Supabase-Verbindung erledigt
+- Geheimen Supabase-Schlüssel + `CRON_SECRET` hinterlegen (Anleitung E Schritt 5, Anleitung K, dann C + D)
 
 **Fertig, wenn:** In Supabase unter „Table Editor“ siehst du Zeilen in `channel_snapshots` und `video_snapshots`, und das Dashboard liest aus der Datenbank. Echte 24h-Werte gibt es, sobald 24 Stunden Schnappschüsse vorliegen (also nach Phase 4).
+
+**Ergebnis Phase 3:**
+- Supabase-Projekt **youtube-dashboard** (`kdqxslwojkvhffhjctrv`, Frankfurt) – von Claude über die Supabase-Verbindung angelegt. Tabellen per Migration `supabase/migrations/0001_init.sql` (bereits ausgeführt, Anleitung F entfällt).
+- Tabellen: `channels`, `channel_snapshots`, `videos`, `video_snapshots`, `snapshot_runs` (Protokoll inkl. Kontingent). RLS an, keine Policies → nur der Server-Schlüssel hat Zugriff.
+- SQL-Funktionen: `video_rankings()` (24h/7d-Aufrufe je Short, „seit Messbeginn“, falls noch kein Messpunkt vor Fensterbeginn) und `compact_video_snapshots()` (Verdichtung, 1× täglich nach einem vollen Lauf).
+- `/api/cron/snapshot` (geschützt mit `CRON_SECRET`): schneller Lauf (~5 Einheiten) bzw. höchstens stündlich ein voller Lauf (~20 Einheiten). Video-Schnappschüsse nur bei geänderten Aufrufen.
+- **Selbstauslöser:** Ist der letzte Schnappschuss älter als 18 Min., stößt das Öffnen des Dashboards im Hintergrund einen an. Ersetzt den Zeitplaner nicht (sonst Lücken, wenn niemand schaut), sorgt aber dafür, dass schon vor Phase 4 Daten entstehen.
+- Gibt es noch keinen Schnappschuss, zeigt das Dashboard solange die Zahlen direkt von YouTube.
+- Widgets beschriften ehrlich „seit X Std.“, solange noch keine 24h gemessen sind.
+- Vercel-Funktionen laufen in Frankfurt (`fra1`), nah an der Datenbank.
+- 69 Tests.
 
 ---
 

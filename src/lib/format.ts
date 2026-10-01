@@ -97,3 +97,20 @@ export function formatDuration(sec: number): string {
   const s = Math.round(sec % 60);
   return `${m}:${String(s).padStart(2, "0")}`;
 }
+
+/**
+ * Beschriftung für Gewinne: „in 24h“ – oder, solange noch keine 24 Stunden
+ * gemessen wurden, „seit 3 Std.“ bzw. „seit 20 Min.“.
+ */
+export function formatWindowLabel(historyHours: number, windowHours = 24): string {
+  if (historyHours >= windowHours) return windowHours === 24 ? "in 24h" : `in ${windowHours / 24} Tagen`;
+  if (historyHours < 1) return `seit ${Math.max(1, Math.round(historyHours * 60))} Min.`;
+  return `seit ${Math.floor(historyHours)} Std.`;
+}
+
+/** Kurzer Hinweis, warum es (noch) keine 24h-Werte gibt – je nach Datenquelle. */
+export function noHistoryHint(source: "mock" | "youtube" | "database"): string {
+  return source === "database"
+    ? "ab dem nächsten Schnappschuss"
+    : "sobald die Datenbank Schnappschüsse sammelt";
+}

@@ -1,0 +1,59 @@
+import { timingSafeEqual } from "node:crypto";
+import { SupabaseStore } from "@/lib/db/SupabaseStore";
+import { getSupabase } from "@/lib/db/supabase";
+import { runSnapshot } from "@/lib/snapshot/run-snapshot";
+import { YouTubeDataClient } from "@/lib/youtube/client";
+
+/**
+ * GET/POST /api/cron/snapshot  – speichert einen Schnappschuss.
+ * Wird vom Zeitplaner (Supabase Cron) alle 15 Minuten aufgerufen.
+ *
+ * Schutz: Header `Authorization: Bearer <CRON_SECRET>`.
+ * Optional: `?mode=quick|full` (Standard: automatisch).
+ */
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
+function authorized(req: Request): boolean {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return false;
+  const given = req.headers.get("authorization") ?? "";
+  const expected = `Bearer ${secret}`;
+  const a = Buffer.from(given);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+async function handle(req: Request): Promise<Response> {
+  if (!process.env.CRON_SECRET) {
+    return Response.json({ error: "CRON_SECRET ist nicht gesetzt." }, { status: 500 });
+  }
+  if (!authorized(req)) {
+    return Response.json({ error: "Nicht erlaubt." }, { status: 401 });
+  }
+  const key = process.env.YOUTUBE_API_KEY;
+  if (!key) return Response.json({ error: "YOUTUBE_API_KEY fehlt." }, { status: 500 });
+
+  const modeParam = new URL(req.url).searchParams.get("mode");
+  const mode = modeParam === "quick" || modeParam === "full" ? modeParam : "auto";
+  const trigger = req.headers.get("x-snapshot-trigger") === "manual" ? "manual" : "cron";
+
+  try {
+    const result = await runSnapshot({
+      store: new SupabaseStore(getSupabase()),
+      client: new YouTubeDataClient(key),
+      trigger,
+      mode,
+    });
+    return Response.json(result, { headers: { "Cache-Control": "no-store" } });
+  } catch (e) {
+    console.error("[cron/snapshot]", e);
+    return Response.json(
+      { error: e instanceof Error ? e.message : String(e) },
+      { status: 502, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+}
+
+export const GET = handle;
+export const POST = handle;

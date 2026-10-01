@@ -75,6 +75,11 @@ export interface DashboardData {
    * false = nur der aktuelle Stand (YouTube direkt, bis die Datenbank aus Phase 3 läuft).
    */
   hasHistory: boolean;
+  /**
+   * Wie viele Stunden Verlauf es gibt (kürzester Kanal). Unter 24 heißt:
+   * „24h“-Werte gelten erst „seit Messbeginn“ – die Widgets beschriften das entsprechend.
+   */
+  historyHours: number;
   /** Zeitpunkt, an dem der Server diese Antwort erzeugt hat (ms). */
   generatedAt: number;
   /** Zeitpunkt des letzten Schnappschusses bzw. YouTube-Abrufs (ms). */

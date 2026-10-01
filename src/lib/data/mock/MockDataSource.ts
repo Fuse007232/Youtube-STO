@@ -5,7 +5,7 @@ import type { ChannelPoint, DataSource, RankedShort, ShortDetail, ShortHistoryPo
 import { HOUR_MS } from "@/lib/metrics/deltas";
 import { activityFromPoints, buildTimingSamples, type FirstDayRow } from "@/lib/metrics/upload-timing";
 import { channelRank, shortTiming } from "@/lib/metrics/short-detail";
-import { mockComments } from "./mock-comments";
+import { mockCommentData, mockComments } from "./mock-comments";
 import { roundSubscribersLikeYouTube } from "@/lib/metrics/rounding";
 import { createRandom, gaussian, hashString } from "./random";
 import { mockAlerts, mockAnalytics } from "./mock-analytics";
@@ -277,6 +277,7 @@ export class MockDataSource implements DataSource {
       alerts: mockAlerts(shorts, lastSnapshotAt),
       rivals: cache.rivals.map((s) => s.raw),
       rivalShorts: cache.rivals.flatMap((s) => s.shorts),
+      comments: mockCommentData(shorts, lastSnapshotAt),
       timing: {
         firstDay: [...cache.sims, ...cache.rivals].flatMap((s) => s.firstDay),
         activity: new Map(cache.sims.map((s) => [s.raw.channel.id, activityFromPoints(s.raw.points)])),

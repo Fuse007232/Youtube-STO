@@ -1,5 +1,12 @@
 import type { AlertCandidate, HourRateRow } from "@/lib/alerts/detect";
-import type { AlertItem, AnalyticsDay, ChannelPoint, RankedShort, ShortHistoryPoint } from "@/lib/data/types";
+import type {
+  AlertItem,
+  AnalyticsDay,
+  ChannelPoint,
+  CommentItem,
+  RankedShort,
+  ShortHistoryPoint,
+} from "@/lib/data/types";
 import type { ChannelConfig } from "@/config/channels";
 import { berlinWeekdayHour, type FirstDayRow, type HourlyActivityRow } from "@/lib/metrics/upload-timing";
 import type {
@@ -12,6 +19,8 @@ import type {
   ChannelRow,
   OAuthConnectionRow,
   ChannelSnapshotRow,
+  CommentGainRow,
+  CommentStore,
   CompetitorStore,
   DashboardReader,
   RunFinish,
@@ -31,7 +40,7 @@ const DAY = 24 * 3_600_000;
 
 /** Datenbank im Arbeitsspeicher – nur für Tests. Bildet die SQL-Logik nach. */
 export class MemoryStore
-  implements SnapshotStore, DashboardReader, AnalyticsStore, AlertStore, CompetitorStore, TimingStore, ShortStore
+  implements SnapshotStore, DashboardReader, AnalyticsStore, AlertStore, CompetitorStore, TimingStore, ShortStore, CommentStore
 {
   channels = new Map<string, ChannelRow>();
   channelSnapshots: ChannelSnapshotRow[] = [];
@@ -44,6 +53,7 @@ export class MemoryStore
   analyticsDaily = new Map<string, AnalyticsDayRow>();
   analyticsVideos: (AnalyticsVideoRow & { period: string })[] = [];
   breakdowns: (BreakdownRow & { period: string })[] = [];
+  comments = new Map<string, CommentItem>();
 
   async upsertChannels(rows: ChannelRow[]) {
     rows.forEach((r) => this.channels.set(r.id, { ...this.channels.get(r.id), ...r, color: r.color ?? this.channels.get(r.id)?.color }));
@@ -304,5 +314,43 @@ export class MemoryStore
       .filter((s) => s.videoId === id)
       .sort((a, b) => a.takenAt - b.takenAt)
       .map((s) => ({ t: s.takenAt, views: s.views, likes: s.likes, comments: s.comments }));
+  }
+
+  async upsertComments(rows: CommentItem[]) {
+    for (const r of rows) {
+      if (!this.videos.has(r.videoId)) throw new Error(`Fremdschlüssel: Video ${r.videoId} unbekannt`);
+      this.comments.set(r.id, { ...r });
+    }
+  }
+  async getRecentComments(channelIds: string[], limit: number) {
+    return [...this.comments.values()]
+      .filter((c) => channelIds.includes(c.channelId))
+      .sort((a, b) => b.publishedAt - a.publishedAt)
+      .slice(0, limit);
+  }
+  async getTopComments(channelIds: string[], since: number, limit: number) {
+    return [...this.comments.values()]
+      .filter((c) => channelIds.includes(c.channelId) && c.publishedAt >= since)
+      .sort((a, b) => b.likes - a.likes)
+      .slice(0, limit);
+  }
+  async getVideoComments(videoId: string, limit: number) {
+    return [...this.comments.values()]
+      .filter((c) => c.videoId === videoId)
+      .sort((a, b) => b.likes - a.likes || b.publishedAt - a.publishedAt)
+      .slice(0, limit);
+  }
+  // Gleiche Regeln wie SQL video_comment_gains (0010)
+  async getCommentGains(now: number): Promise<CommentGainRow[]> {
+    const out: CommentGainRow[] = [];
+    for (const v of this.videos.values()) {
+      if (v.removedAt !== null || this.channels.get(v.channelId)?.kind === "competitor") continue;
+      const snaps = this.videoSnapshots
+        .filter((s) => s.videoId === v.id && s.comments !== null)
+        .sort((a, b) => a.takenAt - b.takenAt);
+      const before = [...snaps].reverse().find((s) => s.takenAt <= now - DAY)?.comments ?? snaps[0]?.comments ?? v.comments;
+      if (v.comments > before) out.push({ id: v.id, channelId: v.channelId, commentsNow: v.comments, commentsBefore: before });
+    }
+    return out;
   }
 }

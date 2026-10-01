@@ -39,3 +39,21 @@ export function mockComments(short: Pick<RankedShort, "id" | "channelId" | "publ
     .filter((c) => c.publishedAt <= at)
     .sort((a, b) => b.likes - a.likes);
 }
+
+/** Kommentar-Puls für Beispieldaten: Kommentare der 15 neuesten Shorts + Zuwachs. */
+export function mockCommentData(shorts: RankedShort[], at: number) {
+  const recentShorts = [...shorts].sort((a, b) => b.publishedAt - a.publishedAt).slice(0, 15);
+  const all = recentShorts.flatMap((s) => mockComments(s, at));
+  return {
+    recent: [...all].sort((a, b) => b.publishedAt - a.publishedAt),
+    top: all.filter((c) => c.publishedAt >= at - 7 * 86_400_000),
+    gains: shorts
+      .filter((s) => s.views24h > 0)
+      .map((s) => ({
+        id: s.id,
+        channelId: s.channelId,
+        commentsNow: Math.round(s.views * 0.0015),
+        commentsBefore: Math.round((s.views - s.views24h) * 0.0015),
+      })),
+  };
+}

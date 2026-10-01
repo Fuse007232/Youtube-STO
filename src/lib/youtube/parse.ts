@@ -1,4 +1,5 @@
-import type { YtThumbnails } from "./types";
+import type { CommentItem } from "@/lib/data/types";
+import type { YtCommentThread, YtThumbnails } from "./types";
 
 /** ISO-8601-Dauer von YouTube („PT1M5S“) → Sekunden (65). */
 export function parseIsoDuration(iso: string | undefined): number {
@@ -28,4 +29,22 @@ export function chunk<T>(list: T[], size: number): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
   return out;
+}
+
+/** Kommentar-Thread → gespeicherter Kommentar (null, wenn unvollständig). */
+export function parseCommentThread(t: YtCommentThread, channelId: string): CommentItem | null {
+  const c = t.snippet?.topLevelComment?.snippet;
+  const videoId = t.snippet?.videoId;
+  const publishedAt = c?.publishedAt ? Date.parse(c.publishedAt) : NaN;
+  if (!c || !videoId || Number.isNaN(publishedAt)) return null;
+  return {
+    id: t.snippet?.topLevelComment?.id ?? t.id,
+    videoId,
+    channelId,
+    author: c.authorDisplayName ?? "",
+    text: (c.textOriginal ?? c.textDisplay ?? "").slice(0, 2000),
+    likes: Number(c.likeCount ?? 0),
+    replies: Number(t.snippet?.totalReplyCount ?? 0),
+    publishedAt,
+  };
 }

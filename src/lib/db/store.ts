@@ -66,7 +66,7 @@ export interface VideoSnapshotRow {
   comments: number;
 }
 
-export type RunMode = "quick" | "full" | "compact" | "analytics";
+export type RunMode = "quick" | "full" | "compact" | "analytics" | "comments";
 export type RunTrigger = "cron" | "dashboard" | "manual";
 
 export interface RunRow {
@@ -215,6 +215,15 @@ export interface CommentStore {
   getTopComments(channelIds: string[], since: number, limit: number): Promise<CommentItem[]>;
   /** Kommentare eines Shorts (meistgelikte zuerst). */
   getVideoComments(videoId: string, limit: number): Promise<CommentItem[]>;
+  /** Neue Kommentare je eigenem Short in 24 Std. (SQL `video_comment_gains`). */
+  getCommentGains(now: number): Promise<CommentGainRow[]>;
+}
+
+export interface CommentGainRow {
+  id: string;
+  channelId: string;
+  commentsNow: number;
+  commentsBefore: number;
 }
 
 /** Lesen (Dashboard). */

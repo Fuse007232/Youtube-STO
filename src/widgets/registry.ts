@@ -13,6 +13,7 @@ import uploadTiming from "./upload-timing";
 import uploadCalendar from "./upload-calendar";
 import shortLength from "./short-length";
 import catalogShare from "./catalog-share";
+import commentPulse from "./comment-pulse";
 
 /**
  * ZENTRALE WIDGET-LISTE – je Seite.
@@ -32,6 +33,8 @@ export const PAGES: Record<DashboardPageId, WidgetDefinition[]> = {
     topShorts,
     // Phase 6: „Short geht ab“-Alarme
     teamRadio,
+    // Phase 7: Kommentare
+    commentPulse,
   ],
   // „Analyse“: Auswertungen in Ruhe (/analyse)
   analysis: [

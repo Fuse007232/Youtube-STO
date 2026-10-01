@@ -345,6 +345,8 @@ export interface DashboardData {
   catalog: CatalogAnalysis[] | null;
   /** Upload-Kalender je eigenem Kanal. */
   calendar: UploadCalendar[] | null;
+  /** Kommentar-Puls der eigenen Kanäle. null = Quelle ohne Kommentare. */
+  comments: CommentPulse | null;
 }
 
 /** Jede Datenquelle muss diese eine Funktion anbieten. */
@@ -374,6 +376,17 @@ export interface CommentItem {
   likes: number;
   replies: number;
   publishedAt: number;
+  /** Titel des Shorts (für Listen; im Dashboard ergänzt). */
+  videoTitle?: string;
+}
+
+/** Kommentar-Puls (Phase 7). */
+export interface CommentPulse {
+  recent: CommentItem[];
+  /** Meistgelikte Kommentare der letzten 7 Tage. */
+  top: CommentItem[];
+  /** Shorts mit den meisten neuen Kommentaren in 24 Std. */
+  hotShorts: { id: string; channelId: string; title: string; thumbnailUrl: string | null; comments24h: number }[];
 }
 
 export interface ShortDetail {

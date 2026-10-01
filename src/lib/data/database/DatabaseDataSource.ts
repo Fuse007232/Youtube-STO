@@ -57,7 +57,7 @@ export interface DatabaseSourceOptions {
   /** Short-Steckbriefe lesen (Phase 7). Fehlt es, gibt es keine Steckbriefe. */
   shorts?: ShortStore;
   /** Kommentare lesen (Phase 7). Fehlt es, gibt es keinen Kommentar-Puls. */
-  comments?: Pick<CommentStore, "getRecentComments" | "getTopComments" | "getVideoComments">;
+  comments?: Pick<CommentStore, "getRecentComments" | "getTopComments" | "getVideoComments" | "getCommentGains">;
 }
 
 type TimingRaw = { firstDay: FirstDayRow[]; activity: Map<string, ActivityProfile> };
@@ -107,7 +107,7 @@ export class DatabaseDataSource implements DataSource {
 
     const rivals = await this.loadRivals(now);
 
-    const [analyticsData, alerts, timing] = await Promise.all([
+    const [analyticsData, alerts, timing, comments] = await Promise.all([
       this.opts.analytics ? this.loadAnalytics(ids, rankings, now) : Promise.resolve(null),
       this.opts.alerts
         ? this.opts.alerts.getRecentAlerts(now - 7 * 24 * HOUR_MS, 20).catch((e) => {
@@ -116,6 +116,7 @@ export class DatabaseDataSource implements DataSource {
           })
         : Promise.resolve(null),
       this.loadTiming(now, lastSnapshotAt),
+      this.loadComments(ids, now),
     ]);
 
     return buildDashboard({
@@ -137,7 +138,25 @@ export class DatabaseDataSource implements DataSource {
       rivals: rivals?.raw,
       rivalShorts: rivals ? rankings.filter((s) => rivals.ids.has(s.channelId)) : undefined,
       timing,
+      comments,
     });
+  }
+
+  /** Kommentar-Puls laden. Fehler legen das Dashboard nicht lahm. */
+  private async loadComments(ids: string[], now: number) {
+    const store = this.opts.comments;
+    if (!store) return null;
+    try {
+      const [recent, top, gains] = await Promise.all([
+        store.getRecentComments(ids, 12),
+        store.getTopComments(ids, now - 7 * 24 * HOUR_MS, 8),
+        store.getCommentGains(now),
+      ]);
+      return { recent, top, gains };
+    } catch (e) {
+      console.error("[comments] Lesen fehlgeschlagen:", e);
+      return null;
+    }
   }
 
   /** Steckbrief eines Shorts (eigener Kanal oder Konkurrent). */

@@ -116,6 +116,31 @@ export function createFakeYouTube(opts: FakeOptions = {}) {
       const all = Object.values(VIDEOS).flat();
       return json({ items: all.filter((v) => ids.includes(v.id)) });
     }
+    if (endpoint === "commentThreads") {
+      const thread = (id: string, videoId: string, text: string, likes: number, at: string) => ({
+        id,
+        snippet: {
+          videoId,
+          totalReplyCount: 1,
+          topLevelComment: { id, snippet: { authorDisplayName: "@fan", textOriginal: text, likeCount: likes, publishedAt: at } },
+        },
+      });
+      const channelId = p.get("allThreadsRelatedToChannelId");
+      if (channelId) {
+        const playlist = channelId === GRA_ID ? "UU_GRA" : "UU_BRV";
+        const first = VIDEOS[playlist]?.[0]?.id ?? "x";
+        return json({
+          items: [
+            thread(`${channelId}-c1`, first, "Teil 2 bitte!", 3, "2026-10-01T10:00:00Z"),
+            thread(`${channelId}-c2`, first, "Legendär", 0, "2026-10-01T11:00:00Z"),
+            // Kommentar zu einem Video, das wir nicht kennen (z. B. langes Video) → wird ignoriert
+            thread(`${channelId}-c3`, "unbekanntes-video", "?", 0, "2026-10-01T11:30:00Z"),
+          ],
+        });
+      }
+      const videoId = p.get("videoId") ?? "";
+      return json({ items: [thread(`${videoId}-top`, videoId, "Bester Short ever", 500, "2026-09-30T08:00:00Z")] });
+    }
     return json({ error: { code: 404, message: "unknown endpoint" } }, 404);
   }) as typeof fetch;
 

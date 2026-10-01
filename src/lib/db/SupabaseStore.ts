@@ -1,6 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AlertCandidate, HourRateRow } from "@/lib/alerts/detect";
-import type { AlertItem, AnalyticsDay, ChannelPoint, RankedShort, ShortHistoryPoint } from "@/lib/data/types";
+import type {
+  AlertItem,
+  AnalyticsDay,
+  ChannelPoint,
+  CommentItem,
+  RankedShort,
+  ShortHistoryPoint,
+} from "@/lib/data/types";
 import type { FirstDayRow, HourlyActivityRow } from "@/lib/metrics/upload-timing";
 import type { ChannelConfig } from "@/config/channels";
 import type {
@@ -13,6 +20,8 @@ import type {
   ChannelRow,
   OAuthConnectionRow,
   ChannelSnapshotRow,
+  CommentGainRow,
+  CommentStore,
   CompetitorStore,
   DashboardReader,
   RunFinish,
@@ -45,7 +54,7 @@ async function inBatches<T>(rows: T[], fn: (batch: T[]) => Promise<void>): Promi
 }
 
 export class SupabaseStore
-  implements SnapshotStore, DashboardReader, AnalyticsStore, AlertStore, CompetitorStore, TimingStore, ShortStore
+  implements SnapshotStore, DashboardReader, AnalyticsStore, AlertStore, CompetitorStore, TimingStore, ShortStore, CommentStore
 {
   constructor(private readonly db: SupabaseClient) {}
 
@@ -638,5 +647,89 @@ export class SupabaseStore
       if (!data || data.length < PAGE) break;
     }
     return out;
+  }
+
+  // ───────────── Kommentar-Puls (Phase 7) ─────────────
+
+  async upsertComments(rows: CommentItem[], at: number): Promise<void> {
+    // Doppelte IDs in einem Paket mag Postgres nicht → vorher zusammenfassen
+    const unique = [...new Map(rows.map((r) => [r.id, r])).values()];
+    await inBatches(unique, async (batch) => {
+      const { error } = await this.db.from("comments").upsert(
+        batch.map((c) => ({
+          id: c.id,
+          video_id: c.videoId,
+          channel_id: c.channelId,
+          author: c.author,
+          text: c.text,
+          likes: c.likes,
+          replies: c.replies,
+          published_at: iso(c.publishedAt),
+          fetched_at: iso(at),
+        })),
+      );
+      check(error, "Kommentare speichern");
+    });
+  }
+
+  private static readonly COMMENT_FIELDS = "id, video_id, channel_id, author, text, likes, replies, published_at";
+
+  private static toComment(r: Record<string, unknown>): CommentItem {
+    return {
+      id: String(r.id),
+      videoId: String(r.video_id),
+      channelId: String(r.channel_id),
+      author: String(r.author ?? ""),
+      text: String(r.text ?? ""),
+      likes: Number(r.likes ?? 0),
+      replies: Number(r.replies ?? 0),
+      publishedAt: Date.parse(String(r.published_at)),
+    };
+  }
+
+  async getRecentComments(channelIds: string[], limit: number): Promise<CommentItem[]> {
+    const { data, error } = await this.db
+      .from("comments")
+      .select(SupabaseStore.COMMENT_FIELDS)
+      .in("channel_id", channelIds)
+      .order("published_at", { ascending: false })
+      .limit(limit);
+    check(error, "Kommentare lesen");
+    return (data ?? []).map((r) => SupabaseStore.toComment(r));
+  }
+
+  async getTopComments(channelIds: string[], since: number, limit: number): Promise<CommentItem[]> {
+    const { data, error } = await this.db
+      .from("comments")
+      .select(SupabaseStore.COMMENT_FIELDS)
+      .in("channel_id", channelIds)
+      .gte("published_at", iso(since))
+      .order("likes", { ascending: false })
+      .limit(limit);
+    check(error, "Kommentare lesen");
+    return (data ?? []).map((r) => SupabaseStore.toComment(r));
+  }
+
+  async getVideoComments(videoId: string, limit: number): Promise<CommentItem[]> {
+    const { data, error } = await this.db
+      .from("comments")
+      .select(SupabaseStore.COMMENT_FIELDS)
+      .eq("video_id", videoId)
+      .order("likes", { ascending: false })
+      .order("published_at", { ascending: false })
+      .limit(limit);
+    check(error, "Kommentare lesen");
+    return (data ?? []).map((r) => SupabaseStore.toComment(r));
+  }
+
+  async getCommentGains(now: number): Promise<CommentGainRow[]> {
+    const { data, error } = await this.db.rpc("video_comment_gains", { p_now: iso(now) });
+    check(error, "Kommentar-Zuwachs lesen");
+    return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+      id: String(r.id),
+      channelId: String(r.channel_id),
+      commentsNow: Number(r.comments_now ?? 0),
+      commentsBefore: Number(r.comments_before ?? 0),
+    }));
   }
 }

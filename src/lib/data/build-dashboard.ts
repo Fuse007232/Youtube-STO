@@ -11,6 +11,8 @@ import {
 import { topShortsPerChannel } from "@/lib/metrics/ranking";
 import { channelShortStats } from "@/lib/metrics/standings";
 import { buildUploadCalendar } from "@/lib/metrics/calendar";
+import { buildCommentPulse } from "@/lib/metrics/comments";
+import type { CommentGainRow } from "@/lib/db/store";
 import { analyzeCatalog } from "@/lib/metrics/catalog";
 import { analyzeShortLength } from "@/lib/metrics/short-length";
 import {
@@ -24,6 +26,7 @@ import type {
   ChannelAnalytics,
   ChannelPoint,
   ChannelSummary,
+  CommentItem,
   DashboardData,
   DataSourceKind,
   RankedShort,
@@ -75,6 +78,8 @@ export interface RawDashboardInput {
   } | null;
   /** Aufrufe je Tag (Analytics) je eigenem Kanal – für den Upload-Kalender. */
   dailyViews?: Map<string, Map<string, number>>;
+  /** Gespeicherte Kommentare + Kommentar-Zuwachs (fehlt = kein Kommentar-Puls). */
+  comments?: { recent: CommentItem[]; top: CommentItem[]; gains: CommentGainRow[] } | null;
 }
 
 function summarize(raw: RawChannelData): ChannelSummary | null {
@@ -169,6 +174,7 @@ export function buildDashboard(input: RawDashboardInput): DashboardData {
     alerts: input.alerts ?? null,
     standings: input.rivals ? buildStandings(channels, input) : null,
     ...buildAnalysis(input),
+    comments: input.comments ? buildCommentPulse(input.comments, input.shorts) : null,
   };
 }
 

@@ -3,6 +3,7 @@ import { chunk } from "./parse";
 import { addQuotaUnits } from "./quota";
 import type {
   YtChannel,
+  YtCommentThread,
   YtErrorResponse,
   YtListResponse,
   YtPlaylistItem,
@@ -130,5 +131,32 @@ export class YouTubeDataClient {
       ),
     );
     return pages.flatMap((p) => p.items ?? []);
+  }
+
+  /**
+   * Kommentar-Threads (1 Einheit pro Seite, bis 100 Stück):
+   * - `{ channelId }`: neueste Kommentare auf ALLEN Videos eines Kanals (nur „time“ möglich)
+   * - `{ videoId }`: Kommentare eines Videos, wahlweise die beliebtesten („relevance“)
+   * Abgeschaltete Kommentare → leere Liste statt Fehler.
+   */
+  async listCommentThreads(
+    target: { channelId: string } | { videoId: string },
+    opts: { order?: "time" | "relevance"; maxResults?: number } = {},
+  ): Promise<YtCommentThread[]> {
+    const params: Record<string, string> = {
+      part: "snippet",
+      maxResults: String(Math.min(100, opts.maxResults ?? 100)),
+      order: opts.order ?? "time",
+      textFormat: "plainText",
+    };
+    if ("channelId" in target) params.allThreadsRelatedToChannelId = target.channelId;
+    else params.videoId = target.videoId;
+    try {
+      const data = await this.get<YtListResponse<YtCommentThread>>("commentThreads", params);
+      return data.items ?? [];
+    } catch (e) {
+      if (e instanceof YouTubeApiError && e.status === 403 && /commentsDisabled/i.test(e.reason)) return [];
+      throw e;
+    }
   }
 }

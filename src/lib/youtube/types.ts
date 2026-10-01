@@ -45,3 +45,23 @@ export interface YtErrorResponse {
     details?: { reason?: string }[];
   };
 }
+
+/** commentThreads.list (nur die Felder, die wir nutzen). */
+export interface YtCommentThread {
+  id: string;
+  snippet?: {
+    videoId?: string;
+    channelId?: string;
+    totalReplyCount?: number;
+    topLevelComment?: {
+      id?: string;
+      snippet?: {
+        authorDisplayName?: string;
+        textOriginal?: string;
+        textDisplay?: string;
+        likeCount?: number;
+        publishedAt?: string;
+      };
+    };
+  };
+}

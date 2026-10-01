@@ -1,0 +1,26 @@
+# Abhängigkeiten
+node_modules/
+
+# Next.js / Build
+.next/
+out/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# Vercel
+.vercel/
+
+# Zugangsdaten – NIEMALS committen
+.env
+.env.*
+!.env.example
+
+# Supabase lokal
+supabase/.temp/
+supabase/.branches/
+
+# Tests / Logs / System
+coverage/
+npm-debug.log*
+.DS_Store

@@ -1,0 +1,415 @@
+# Projektplan: YouTube-Shorts-Dashboard
+
+> Stand: Phase 0 (Planung). Noch kein Code.
+> Dieses Dokument wird nach jeder Phase aktualisiert (Status-Tabelle unten).
+
+---
+
+## 1. Überblick
+
+**Ziel:** Eine private Web-App (Dashboard), die beide YouTube-Shorts-Kanäle auf einen Blick zeigt: im Dark Mode, modern, flüssig animiert, mit einer Duell-Ansicht im Stil eines Live-Timing-Towers aus dem Rennsport.
+
+**Grundidee, wie die Zahlen „live“ werden:**
+YouTube hat keine Echtzeit-Schnittstelle. Deshalb holt ein Hintergrund-Job alle 15 Minuten die aktuellen Zahlen und speichert sie als **Schnappschuss** (Momentaufnahme) in einer Datenbank. Alles Weitere, also 24h-Gewinne, Verlaufskurven und Ranglisten, rechnet die App selbst aus diesen Schnappschüssen aus. Das Dashboard fragt nur die eigene Datenbank ab, nie direkt YouTube. Dadurch verbraucht das Öffnen des Dashboards **kein** YouTube-Kontingent.
+
+```
+  alle 15 Min.                                  jede Minute
+┌──────────────┐   holt Zahlen   ┌──────────┐  speichert  ┌──────────┐   liest   ┌───────────┐
+│ Zeitplaner   │ ──────────────▶ │ YouTube  │ ──────────▶ │ Supabase │ ◀──────── │ Dashboard │
+│ (Cron)       │  über unsere    │ Data API │             │ Datenbank│           │ (Browser) │
+└──────────────┘  App auf Vercel └──────────┘             └──────────┘           └───────────┘
+```
+
+### Status der Phasen
+
+| Phase | Inhalt | Status |
+|---|---|---|
+| 0 | Planung (dieses Dokument) | ✅ fertig, wartet auf dein OK |
+| 1 | Grundgerüst + Dashboard mit Beispieldaten | ⏳ offen |
+| 2 | Echte Zahlen über die YouTube Data API | ⏳ offen |
+| 3 | Supabase-Datenbank, Schnappschüsse, 24h-Duell | ⏳ offen |
+| 4 | Veröffentlichung auf Vercel (inkl. Passwortschutz und Zeitplaner) | ⏳ offen |
+| 5 | OAuth-Login + YouTube Analytics API | ⏳ offen |
+| 6 | Extras (Alarm, beste Upload-Zeit, Konkurrenz) | ⏳ offen |
+
+---
+
+## 2. Technik und Begründung
+
+| Baustein | Wahl | Warum / Anmerkung |
+|---|---|---|
+| Web-Framework | **Next.js 16** (App Router) mit **TypeScript** | Seiten und Server-Funktionen (API-Routen) in einem Projekt; läuft ideal auf Vercel. TypeScript findet Tippfehler, bevor du sie siehst. |
+| Styling | **Tailwind CSS 4** | Schnell, konsistentes Dark-Mode-Design. |
+| Diagramme | **Recharts 3** | Wie vorgeschlagen. |
+| Animationen | **Motion** (früher „Framer Motion“) | Gleiche Bibliothek, heißt inzwischen nur anders (`motion`). |
+| Datenbank | **Supabase** (Postgres) | Kostenloser Plan reicht. Wir greifen **nur vom Server** darauf zu, nie direkt aus dem Browser. Das ist sicherer, weil kein Datenbank-Schlüssel im Browser landet. |
+| Hosting | **Vercel** (Hobby, kostenlos) | Automatisch neue Version bei jedem Push. |
+| Zeitplaner (alle 15 Min.) | **Supabase Cron** ⚠️ *Abweichung* | Vercel erlaubt im kostenlosen Plan Cron-Jobs nur **einmal pro Tag**. Supabase Cron kann alle 15 Minuten unsere Vercel-Adresse aufrufen. Alternativen siehe unten. |
+| Tests | **Vitest** | Für die Rechenlogik (24h-Gewinne, Ranglisten), damit Zahlen stimmen. |
+
+**Alternativen zum Zeitplaner** (falls Supabase Cron Probleme macht):
+- GitHub Actions (geplanter Workflow): bei privaten Repos reicht das Gratis-Kontingent nicht für alle 15 Minuten, außerdem oft verspätet.
+- cron-job.org (externer Gratis-Dienst): funktioniert, ist aber ein weiterer Account.
+
+**Kosten:** Alles läuft im Gratis-Bereich (Vercel Hobby, Supabase Free, Google API mit Tageskontingent).
+
+---
+
+## 3. Architektur (vorbereitet auf späteren Ausbau)
+
+### 3.1 Widget-System (dein Wunsch: „Datei anlegen und eintragen, fertig“)
+
+- Jedes Element im Dashboard ist ein **Widget** in einem eigenen Ordner unter `src/widgets/`.
+- Jedes Widget beschreibt sich selbst: ID, Titel, Größe im Raster (klein / mittel / breit / volle Breite) und die Komponente, die es anzeigt.
+- Alle Widgets stehen in **einer** zentralen Liste: `src/widgets/registry.ts`. Die Reihenfolge dort ist die Reihenfolge im Dashboard.
+- Widgets holen sich ihre Daten nicht selbst bei YouTube, sondern aus einem gemeinsamen **Daten-Topf** (`useDashboardData()`), der sich jede Minute aktualisiert. So gibt es keine doppelten Abfragen.
+
+### 3.2 Austauschbare Datenquelle
+
+Die Widgets wissen nicht, woher die Daten kommen. Dazwischen sitzt eine „Datenquelle“ mit fester Form:
+- **Phase 1:** `MockDataSource`: realistische Beispieldaten (2 Kanäle, ~40 Shorts, 7 Tage Verlauf).
+- **Phase 2:** `YouTubeDataSource`: direkt von der YouTube Data API (mit Zwischenspeicher).
+- **Ab Phase 3:** `DatabaseDataSource`: aus den Supabase-Schnappschüssen.
+
+Umschalten per Umgebungsvariable `DATA_SOURCE=mock|youtube|database`. Die Beispieldaten bleiben erhalten. Damit kann man Design-Änderungen jederzeit ohne Internet testen.
+
+### 3.3 Geplante Ordnerstruktur
+
+```
+src/
+  app/                    Seiten und Server-Routen (Next.js)
+    page.tsx              Das Dashboard
+    api/dashboard/        Liefert alle Dashboard-Daten (liest DB)
+    api/cron/snapshot/    Wird alle 15 Min. aufgerufen, speichert Schnappschuss
+    api/auth/youtube/     OAuth-Login pro Kanal (Phase 5)
+  widgets/
+    registry.ts           ZENTRALE Widget-Liste
+    types.ts              Wie ein Widget aussehen muss
+    channel-overview/     Beide Kanäle nebeneinander
+    duel-tower/           24h-Duell als Timing-Tower
+    trend-chart/          Verlaufskurven
+    top-shorts/           Rangliste (24h / 7 Tage / gesamt)
+    ...
+  components/ui/          Bausteine: AnimatedCounter, Card, Tabs, ...
+  lib/
+    data/                 Datenquellen (mock / youtube / database)
+    youtube/              YouTube Data API + Analytics API + Kontingent-Zähler
+    db/                   Supabase-Zugriff
+    metrics/              Reine Rechenfunktionen (24h-Gewinn, Rangliste) + Tests
+    alerts/               (Phase 6) Alarm-Regeln + Benachrichtigungswege
+  config/
+    channels.ts           Die beiden Kanal-IDs (öffentlich, kein Geheimnis)
+supabase/
+  migrations/             SQL-Dateien für die Datenbank-Tabellen
+docs/
+  PLAN.md                 Dieser Plan
+CLAUDE.md                 Gedächtnis für spätere Claude-Sessions
+.env.example              Liste aller Umgebungsvariablen (leer)
+```
+
+### 3.4 Geplante Datenbank-Tabellen
+
+| Tabelle | Inhalt | Ab Phase |
+|---|---|---|
+| `channels` | Kanal-ID, Name, Bild, Upload-Playlist, **`kind` = eigener Kanal oder Konkurrent** | 3 |
+| `channel_snapshots` | Zeitpunkt, Abos, Gesamtaufrufe, Anzahl Videos | 3 |
+| `videos` | Video-ID, Kanal, Titel, Thumbnail, Länge, Veröffentlichungszeit, ist-Short | 3 |
+| `video_snapshots` | Zeitpunkt, Aufrufe, Likes, Kommentare pro Video | 3 |
+| `quota_log` | Verbrauchte API-Einheiten pro Lauf | 3 |
+| `oauth_connections` | Pro Kanal das (verschlüsselte) Google-Refresh-Token | 5 |
+| `analytics_daily` | Tägliche Analytics-Werte pro Kanal/Video | 5 |
+| `alerts` | Ausgelöste Alarme (z. B. „Short geht ab“) | 6 |
+
+Die Spalte `kind` und die Tabelle `alerts` sind schon so geplant, dass Konkurrenz-Kanäle und Alarme später ohne Umbau dazukommen.
+
+### 3.5 Sparsamer Umgang mit dem YouTube-Kontingent
+
+Tageskontingent: **10.000 Einheiten**. Wir nutzen **kein** `search.list` (kostet 100 Einheiten).
+
+| Abfrage | Kosten | Wofür |
+|---|---|---|
+| `channels.list` (beide Kanäle in **einer** Abfrage) | 1 | Abos, Aufrufe, Anzahl Videos, ID der Upload-Playlist |
+| `playlistItems.list` (50 Videos pro Seite) | 1 pro Seite | Liste der Uploads |
+| `videos.list` (bis 50 IDs pro Abfrage) | 1 pro 50 Videos | Aufrufe/Likes/Länge pro Video |
+
+**Strategie:**
+- Alle 15 Min.: Kanalzahlen (1) + neueste 50 Uploads pro Kanal (2) + Statistiken der Videos der letzten 7 Tage (~2).
+- Jede Stunde: Statistiken **aller** Videos (bei 2 × 300 Videos = 12).
+- Einmal täglich: komplette Upload-Liste neu einlesen (Titel-Änderungen, gelöschte Videos).
+- **Rechnung:** ca. 96 × 5 + 24 × 12 + 12 ≈ **800 Einheiten/Tag**, also unter 10 % des Kontingents. Genug Luft für Konkurrenz-Kanäle.
+- Jeder Lauf schreibt seinen Verbrauch in `quota_log`. Das Dashboard zeigt eine kleine Kontingent-Anzeige.
+
+### 3.6 Speicherplatz (Supabase Free = 500 MB)
+
+Schnappschüsse wachsen schnell. Deshalb wird **verdichtet** (Fachwort: Downsampling):
+- 15-Minuten-Werte: 3 Tage lang aufheben (reicht für 24h-Duell und Kurven)
+- danach Stundenwerte: 30 Tage
+- danach Tageswerte: für immer
+- **Ausnahme:** Die ersten 48 Stunden jedes Shorts bleiben in 15-Minuten-Auflösung für immer gespeichert. Das ist die Grundlage für „Short geht ab“-Alarme und die beste Upload-Uhrzeit.
+
+Geschätzter Bedarf: deutlich unter 100 MB pro Jahr.
+
+### 3.7 Bekannte Einschränkungen (eingeplant)
+
+- **Keine Echtzeit:** Schnappschüsse alle 15 Min. Zwischen zwei Schnappschüssen kann das Dashboard optional eine **Hochrechnung** anzeigen (Zahl tickt im zuletzt gemessenen Tempo weiter, klar als „geschätzt“ markiert). → Frage an dich, siehe unten.
+- **Gerundete Abozahlen:** Öffentlich zeigt YouTube nur 3 gültige Stellen (z. B. 12.300 statt 12.347). Bei kleinen 24h-Änderungen zeigt das Duell deshalb oft „±0“. Ab Phase 5 holen wir die **exakten** Abo-Gewinne über die Analytics API (aber mit 1–2 Tagen Verzögerung). Das Dashboard kennzeichnet beides.
+- **Analytics-Verzögerung:** 1–2 Tage. Der tägliche Abruf holt deshalb immer die letzten 3 Tage neu.
+- **Shorts erkennen:** Die API hat kein „ist ein Short“-Feld. Möglichkeiten: Länge ≤ 3 Min., oder ein inoffizieller Trick über eine spezielle Shorts-Playlist. → Frage an dich.
+- **Aufrufe bei Shorts:** Seit 2025 zählt YouTube bei Shorts jede Wiedergabe (auch Wiederholungen). In der Analytics API gibt es zusätzlich „engaged views“. Wir zeigen das ab Phase 5 getrennt.
+
+---
+
+## 4. Die Phasen im Detail
+
+### Phase 1: Grundgerüst + Dashboard mit Beispieldaten
+
+**Ziel:** Du siehst früh das Design und die Animationen, ganz ohne Accounts und Schlüssel.
+
+**Arbeitsschritte (mache ich):**
+1. Next.js-Projekt mit TypeScript, Tailwind, Recharts, Motion, ESLint, Vitest anlegen.
+2. `.gitignore` (inkl. aller `.env`-Dateien) und `.env.example` mit leeren Platzhaltern.
+3. Widget-System (`types.ts`, `registry.ts`) und Dashboard-Raster.
+4. Beispieldaten-Generator: 2 Kanäle, ~40 Shorts, 7 Tage Verlauf in 15-Min.-Schritten, leicht „lebendig“ (Zahlen ändern sich bei jeder Aktualisierung).
+5. Erste Widgets:
+   - **Kanal-Übersicht:** beide Kanäle nebeneinander (Abos, Gesamtaufrufe, Anzahl Videos), animiertes Hochzählen.
+   - **Duell-Tower (24h):** Timing-Tower im Rennsport-Stil. Position, Kanal, Abstand („Gap“), Farbcodes (lila = Bestwert, grün = besser als zuletzt, gelb = schlechter).
+   - **Verlaufskurven:** Aufrufe/Abos der letzten 24h beider Kanäle übereinander.
+   - **Top-Shorts-Rangliste:** Umschalter 24h / 7 Tage / gesamt, mit Positionswechsel-Animation.
+   - **Statusleiste:** „Letzte Aktualisierung vor X Min.“, Datenquelle (Beispiel/echt).
+6. Automatische Aktualisierung jede Minute + animierte Zähler.
+7. `CLAUDE.md` mit Anleitung „Neues Widget hinzufügen“ aktualisieren.
+
+**Was ich alleine kann:** alles oben.
+**Wo ich dich brauche:**
+- Feedback zum Design.
+- *Optional, aber empfohlen:* Vercel schon jetzt mit dem Repo verbinden (Anleitung D unten, ca. 5 Min.). Dann bekommst du bei jedem Push einen Vorschau-Link und kannst das Dashboard selbst anklicken, auch am Handy. Ohne Vercel schicke ich dir Screenshots, denn diese Cloud-Session hat keinen Link, den du im Browser öffnen könntest.
+
+**Fertig, wenn:**
+- `npm run build`, `npm run lint` und `npm test` laufen fehlerfrei durch.
+- Du hast das Dashboard gesehen (Vorschau-Link oder Screenshots) und gibst dein OK zum Design.
+
+---
+
+### Phase 2: Echte Zahlen über die YouTube Data API
+
+**Ziel:** Kanal-Übersicht und „Top-Shorts gesamt“ zeigen echte Zahlen.
+
+**Arbeitsschritte (mache ich):**
+1. YouTube-Baustein in `src/lib/youtube/`: `channels.list`, `playlistItems.list`, `videos.list` (50er-Pakete), mit Kontingent-Zähler.
+2. Shorts-Erkennung (je nach deiner Antwort auf die Frage dazu).
+3. `YouTubeDataSource` mit 10-Minuten-Zwischenspeicher (damit Neuladen kein Kontingent frisst).
+4. 24h-Werte bleiben in dieser Phase noch Beispieldaten und sind als „Demo“ markiert, denn dafür braucht es die Datenbank aus Phase 3.
+5. Tests mit gespeicherten Beispiel-Antworten von YouTube (funktionieren auch ohne Schlüssel).
+
+**Wo ich dich brauche:**
+- Google-Cloud-Projekt + API-Schlüssel anlegen → **Anleitung A**
+- Kanal-IDs nachschauen → **Anleitung B**
+- Schlüssel sicher hinterlegen → **Anleitung C** (für mich in der Cloud) und **Anleitung D** (Vercel)
+
+**Hinweis zur Cloud-Session:** Ich habe geprüft: Diese Cloud-Umgebung erreicht die Google-APIs. Neue Umgebungsvariablen werden aber erst in einer **neuen** Session sichtbar. Ich baue Phase 2 deshalb so, dass ich sie mit Beispiel-Antworten testen kann. Den Echt-Test machen wir über die Vercel-Vorschau oder in der nächsten Session.
+
+**Fertig, wenn:** Das Dashboard zeigt die echten Abos, Aufrufe und Video-Anzahlen beider Kanäle und die echten Top-Shorts (gesamt). Der Kontingent-Verbrauch pro Abruf wird angezeigt.
+
+---
+
+### Phase 3: Supabase-Datenbank, Schnappschüsse, 24h-Duell
+
+**Ziel:** Zahlen werden gespeichert. 24h-Gewinne, Kurven und Ranglisten (24h / 7 Tage) werden aus echten Schnappschüssen berechnet.
+
+**Arbeitsschritte (mache ich):**
+1. SQL-Dateien für die Tabellen aus Abschnitt 3.4 (`supabase/migrations/`).
+2. Server-Route `/api/cron/snapshot`: holt Zahlen (Strategie aus 3.5) und speichert sie. Geschützt durch ein Geheimwort (`CRON_SECRET`), damit niemand Fremdes sie auslösen kann.
+3. Rechenfunktionen mit Tests: Gewinn seit 24h, Ranglisten 24h/7d, Kurvendaten.
+4. Verdichtungs-Job (siehe 3.6).
+5. `DatabaseDataSource` und Duell-Tower auf echte Daten umstellen.
+6. Snapshots in dieser Phase **von Hand auslösen** (ich kann das aus der Cloud-Session, sobald die Schlüssel dort hinterlegt sind). Der automatische 15-Minuten-Takt kommt in Phase 4, weil er eine feste öffentliche Adresse braucht.
+
+**Wo ich dich brauche:**
+- Supabase-Projekt anlegen → **Anleitung E**
+- SQL-Datei im Supabase-Editor ausführen → **Anleitung F** (ich sage dir genau welche Datei)
+- Schlüssel hinterlegen (Anleitung C + D)
+
+**Fertig, wenn:** In Supabase unter „Table Editor“ siehst du Zeilen in `channel_snapshots` und `video_snapshots`, und das Dashboard liest aus der Datenbank. Echte 24h-Werte gibt es, sobald 24 Stunden Schnappschüsse vorliegen (also nach Phase 4).
+
+---
+
+### Phase 4: Veröffentlichung auf Vercel
+
+**Ziel:** Das Dashboard läuft dauerhaft unter einer festen Adresse, ist passwortgeschützt und sammelt automatisch alle 15 Minuten Daten.
+
+**Arbeitsschritte (mache ich):**
+1. Passwortschutz: Login-Seite mit einem Passwort (`DASHBOARD_PASSWORD`), angemeldet bleiben per sicherem Cookie (30 Tage).
+2. Produktions-Einstellungen prüfen, Fehlerseiten, Ladezustände.
+3. SQL-Schnipsel für Supabase Cron vorbereiten (ruft alle 15 Min. `/api/cron/snapshot` auf).
+4. Pull Request von meinem Arbeits-Branch nach `main` (die Produktions-Version). Den mergst du.
+
+**Wo ich dich brauche:**
+- Vercel-Projekt (falls nicht schon in Phase 1) + alle Umgebungsvariablen eintragen → **Anleitung D**
+- Pull Request auf GitHub mergen → **Anleitung H**
+- Zeitplaner in Supabase einschalten → **Anleitung G**
+
+**Fertig, wenn:** Du öffnest `https://<dein-projekt>.vercel.app`, musst dich mit Passwort anmelden, und nach 24 Stunden zeigt das Duell echte 24h-Gewinne. In `quota_log` siehst du alle 15 Min. einen neuen Eintrag.
+
+---
+
+### Phase 5: OAuth-Login + YouTube Analytics API
+
+**Ziel:** Tiefere Daten: Zuschauerbindung, exakter Abo-Gewinn pro Short, Watchtime, Herkunft der Zuschauer (Länder, Traffic-Quellen), engaged views.
+
+**Arbeitsschritte (mache ich):**
+1. Einstellungsseite „Kanäle verbinden“: pro Kanal ein Knopf „Mit YouTube verbinden“.
+2. OAuth-Ablauf (Fachwort für: „Google fragt dich, ob die App deine Kanal-Statistiken lesen darf“). Das Refresh-Token (eine Art Dauer-Erlaubnis) wird **verschlüsselt** in `oauth_connections` gespeichert.
+3. Täglicher Analytics-Abruf (holt immer die letzten 3 Tage, wegen der Verzögerung).
+4. Neue Widgets: Zuschauerbindung, Abo-Gewinn pro Short, Watchtime, Herkunft.
+5. Duell zeigt zusätzlich exakte Abo-Gewinne (markiert als „Stand vorgestern“).
+
+**Wo ich dich brauche:**
+- OAuth in Google Cloud einrichten → **Anleitung I**
+- Beide Kanäle im Dashboard verbinden → **Anleitung J**
+
+**Wichtig zur Cloud:** Der Google-Login braucht einen echten Browser und eine feste Rückkehr-Adresse. Das geht nicht in dieser Cloud-Session, aber problemlos über die Vercel-Adresse. Deshalb kommt Phase 5 bewusst **nach** Vercel.
+
+**Fertig, wenn:** Beide Kanäle stehen auf „verbunden“ und die Analytics-Widgets zeigen Daten von vorgestern und früher.
+
+---
+
+### Phase 6: Extras
+
+Jedes Extra ist ein eigener kleiner Schritt:
+1. **„Short geht ab“-Alarm:** Nach jedem Schnappschuss wird geprüft, ob ein Short in der letzten Stunde deutlich schneller wächst als üblich (verglichen mit den Startkurven deiner bisherigen Shorts). Treffer landen in `alerts` und werden dir geschickt (Weg nach deiner Wahl, z. B. Telegram).
+2. **Beste Upload-Uhrzeit:** Auswertung der ersten 24/48h jedes Shorts nach Wochentag und Uhrzeit (Heatmap).
+3. **Konkurrenz-Vergleich:** Konkurrenz-Kanäle per ID eintragen (`kind = competitor`), gleiche Schnappschüsse, eigenes Widget.
+
+**Wo ich dich brauche:** Entscheidung über den Benachrichtigungsweg und ggf. einen Bot-Schlüssel (z. B. Telegram), Liste der Konkurrenz-Kanäle.
+
+---
+
+## 5. Alle Zugangsdaten (Umgebungsvariablen)
+
+**Grundregel:** Kein Schlüssel kommt in den Code, ins Repo oder in den Chat. `.env`-Dateien stehen in der `.gitignore`. Die Datei `.env.example` listet nur die **Namen** (leer).
+
+| Variable | Was ist das? | Woher? | Ab Phase | Wo eintragen? |
+|---|---|---|---|---|
+| `DATA_SOURCE` | `mock`, `youtube` oder `database` | Kein Geheimnis, legst du fest | 1 | Vercel, Claude-Umgebung |
+| `YOUTUBE_API_KEY` | Schlüssel für öffentliche YouTube-Zahlen | Anleitung A | 2 | Vercel, Claude-Umgebung |
+| `SUPABASE_URL` | Adresse deiner Datenbank | Anleitung E | 3 | Vercel, Claude-Umgebung |
+| `SUPABASE_SECRET_KEY` | Geheimer Server-Schlüssel der Datenbank (`sb_secret_…`) | Anleitung E | 3 | Vercel, Claude-Umgebung |
+| `CRON_SECRET` | Geheimwort, damit nur dein Zeitplaner Schnappschüsse auslösen darf | Selbst erzeugen (Anleitung K) | 3 | Vercel, Claude-Umgebung, Supabase Cron (Anleitung G) |
+| `DASHBOARD_PASSWORD` | Dein Login-Passwort fürs Dashboard | Selbst ausdenken (lang!) | 4 | Vercel |
+| `SESSION_SECRET` | Geheimnis zum Signieren des Login-Cookies | Selbst erzeugen (Anleitung K) | 4 | Vercel |
+| `APP_URL` | Feste Adresse, z. B. `https://xyz.vercel.app` | Vercel | 4 | Vercel |
+| `GOOGLE_CLIENT_ID` | OAuth-Kennung deiner App | Anleitung I | 5 | Vercel |
+| `GOOGLE_CLIENT_SECRET` | OAuth-Geheimnis deiner App | Anleitung I | 5 | Vercel |
+| `TOKEN_ENCRYPTION_KEY` | Schlüssel zum Verschlüsseln der Refresh-Tokens | Selbst erzeugen (Anleitung K) | 5 | Vercel |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Nur falls Alarm per Telegram | später | 6 | Vercel |
+
+**Keine Geheimnisse (dürfen in den Code / Chat):** die beiden Kanal-IDs (`UC…`). Die stehen in `src/config/channels.ts`.
+
+**Die drei Orte, an denen Schlüssel sicher liegen:**
+1. **Vercel** → für die echte, laufende App (Anleitung D).
+2. **Claude-Cloud-Umgebung** → nur damit ich in einer Session mit echten Daten testen kann (Anleitung C).
+3. **Lokal** (nur falls du die App irgendwann auf deinem eigenen PC startest) → Datei `.env.local` im Projektordner, die nie ins Repo kommt.
+
+---
+
+## 6. Klick-für-Klick-Anleitungen
+
+> Google, Vercel und Supabase ändern ihre Oberflächen manchmal. Wenn ein Knopf anders heißt, schick mir einen Screenshot (**ohne** sichtbare Schlüssel) und ich lotse dich durch.
+
+### Anleitung A: Google-Cloud-Projekt + YouTube-API-Schlüssel (Phase 2)
+1. Öffne https://console.cloud.google.com und melde dich mit deinem Google-Konto an.
+2. Oben links neben „Google Cloud“ auf die Projektauswahl klicken → **„Neues Projekt“** → Name: `youtube-dashboard` → **„Erstellen“**. Danach sicherstellen, dass oben dieses Projekt ausgewählt ist.
+3. Menü ☰ → **„APIs & Dienste“** → **„Bibliothek“** → nach **„YouTube Data API v3“** suchen → anklicken → **„Aktivieren“**.
+4. Dasselbe für **„YouTube Analytics API“** (brauchen wir erst in Phase 5, schadet aber nicht).
+5. Menü ☰ → **„APIs & Dienste“** → **„Anmeldedaten“** → oben **„+ Anmeldedaten erstellen“** → **„API-Schlüssel“**.
+6. Beim neuen Schlüssel auf **„Schlüssel bearbeiten“** (bzw. den Namen anklicken):
+   - Name: `dashboard-server`
+   - **API-Einschränkungen** → „Schlüssel einschränken“ → nur **„YouTube Data API v3“** anhaken.
+   - Anwendungseinschränkungen: **„Keine“** (Vercel hat wechselnde Adressen).
+   - **„Speichern“**.
+7. Schlüssel kopieren und **direkt** in Vercel (Anleitung D) und die Claude-Umgebung (Anleitung C) als `YOUTUBE_API_KEY` eintragen. **Nicht** in den Chat.
+
+### Anleitung B: Kanal-IDs finden (Phase 2)
+1. Auf https://studio.youtube.com den ersten Kanal öffnen (oben rechts Profilbild → „Konto wechseln“, falls nötig).
+2. Links **„Einstellungen“** → **„Kanal“** → **„Erweiterte Einstellungen“** → dort steht die **Kanal-ID** (beginnt mit `UC`).
+   *Alternative:* https://www.youtube.com/account_advanced
+3. Für den zweiten Kanal wiederholen.
+4. Die beiden IDs darfst du mir in den Chat schreiben. Sie sind öffentlich.
+
+### Anleitung C: Schlüssel für Claude in der Cloud hinterlegen
+1. In der Claude-App oben in der Titelleiste der Session das Menü der **Cloud-Umgebung** öffnen → **„Bearbeiten“ / „Edit“**.
+2. Bei den **Umgebungsvariablen** je Zeile `NAME=wert` eintragen, z. B. `YOUTUBE_API_KEY=…`.
+3. Speichern. **Wichtig:** Die Werte sind erst in einer **neuen** Session sichtbar. Sag mir Bescheid, dann machen wir dort weiter. Die `CLAUDE.md` sorgt dafür, dass die neue Session sofort Bescheid weiß.
+
+### Anleitung D: Vercel einrichten + Umgebungsvariablen (Phase 1 optional / Phase 4)
+1. https://vercel.com → **„Sign Up“** → **„Continue with GitHub“** → Hobby-Plan wählen.
+2. **„Add New…“** → **„Project“** → bei „Import Git Repository“ das Repo **`fuse007232/youtube-sto`** wählen → **„Import“**.
+   Falls es fehlt: **„Adjust GitHub App Permissions“** → Zugriff auf dieses Repo erlauben.
+3. Framework erkennt Vercel automatisch (Next.js) → **„Deploy“**.
+4. Umgebungsvariablen: Projekt öffnen → **„Settings“** → **„Environment Variables“** → **Key** (z. B. `YOUTUBE_API_KEY`) und **Value** eintragen → bei Environments **Production** und **Preview** anhaken → **„Save“**.
+5. Nach dem Ändern von Variablen: **„Deployments“** → beim neuesten Eintrag **„⋯“** → **„Redeploy“** (sonst wirken neue Werte nicht).
+6. Vorschau-Links: Jeder Push auf meinen Arbeits-Branch erzeugt eine Vorschau. Du findest sie unter „Deployments“. Vorschauen sind standardmäßig nur für dich (eingeloggt bei Vercel) sichtbar.
+
+### Anleitung E: Supabase-Projekt anlegen (Phase 3)
+1. https://supabase.com → **„Start your project“** → mit GitHub anmelden.
+2. Organisation anlegen (Plan: **Free**).
+3. **„New project“**: Name `youtube-dashboard`, **Database Password** über „Generate a password“ erzeugen und in deinem Passwort-Manager speichern. Region: **Central EU (Frankfurt)** → **„Create new project“**. Kurz warten.
+4. Links **„Project Settings“** (Zahnrad) → **„Data API“**: **Project URL** kopieren → als `SUPABASE_URL` eintragen.
+5. **„Project Settings“** → **„API Keys“** → unter **„Secret keys“** einen Schlüssel erzeugen/anzeigen (`sb_secret_…`) → als `SUPABASE_SECRET_KEY` eintragen (Vercel + Claude-Umgebung). Diesen Schlüssel niemals teilen.
+
+### Anleitung F: SQL in Supabase ausführen (Phase 3, und bei Datenbank-Änderungen)
+1. Im Supabase-Projekt links **„SQL Editor“** → **„+ New query“**.
+2. Den Inhalt der Datei, die ich dir nenne (z. B. `supabase/migrations/0001_init.sql`), auf GitHub öffnen → „Raw“ / Kopieren-Knopf → in den Editor einfügen.
+3. **„Run“**. Unten muss „Success“ stehen.
+4. Kontrolle: links **„Table Editor“** → die neuen Tabellen sind sichtbar.
+
+### Anleitung G: Zeitplaner (Supabase Cron) einschalten (Phase 4)
+1. Im Supabase-Projekt links **„Integrations“** → **„Cron“** → aktivieren (falls nötig, zusätzlich die Erweiterung **„pg_net“** aktivieren; ich sage dir Bescheid).
+2. Ich gebe dir ein fertiges SQL-Schnipsel mit einem Platzhalter `<CRON_SECRET>`.
+3. Im **SQL Editor** einfügen, **dort** den Platzhalter durch dein echtes `CRON_SECRET` ersetzen (nicht im Repo, nicht im Chat) → **„Run“**.
+4. Kontrolle: **„Integrations“ → „Cron“ → „Jobs“** zeigt den Job mit „every 15 minutes“. Unter „History“ siehst du die Läufe.
+
+### Anleitung H: Pull Request mergen (Phase 4 und später)
+1. Ich schicke dir den Link zum Pull Request.
+2. Auf GitHub unten **„Merge pull request“** → **„Confirm merge“**.
+3. Vercel baut danach automatisch die Produktions-Version (dauert ca. 1–2 Min.).
+
+### Anleitung I: OAuth in Google Cloud einrichten (Phase 5)
+1. https://console.cloud.google.com → Projekt `youtube-dashboard` → Menü ☰ → **„APIs & Dienste“** → **„OAuth-Zustimmungsbildschirm“** (heißt evtl. **„Google Auth Platform“**) → **„Jetzt starten“**.
+2. App-Name: `Mein YouTube Dashboard`, Support-E-Mail: deine → Zielgruppe: **„Extern“** → Kontakt-E-Mail → zustimmen → **„Erstellen“**.
+3. **„Datenzugriff“** → **„Bereiche hinzufügen“** → diese beiden suchen und anhaken:
+   - `https://www.googleapis.com/auth/yt-analytics.readonly`
+   - `https://www.googleapis.com/auth/youtube.readonly`
+   → **„Aktualisieren“** → **„Speichern“**.
+4. **„Zielgruppe“** → **„App veröffentlichen“** → bestätigen (Status: **„In Produktion“**).
+   *Warum?* Im Status „Test“ laufen die Freigaben nach **7 Tagen** ab und du müsstest dich wöchentlich neu verbinden. Eine Google-Prüfung ist für den Privatgebrauch nicht nötig. Beim Verbinden erscheint dann einmalig die Warnung „Google hat diese App nicht überprüft“, die du überspringst (siehe Anleitung J).
+5. **„Clients“** → **„+ Client erstellen“** → Typ: **„Webanwendung“** → Name: `dashboard`.
+   **Autorisierte Weiterleitungs-URIs** → `https://<deine-vercel-adresse>/api/auth/youtube/callback` (genaue Adresse sage ich dir) → **„Erstellen“**.
+6. **Client-ID** und **Clientschlüssel** kopieren → in Vercel als `GOOGLE_CLIENT_ID` und `GOOGLE_CLIENT_SECRET` eintragen → Redeploy.
+
+### Anleitung J: Beide Kanäle im Dashboard verbinden (Phase 5)
+1. Dashboard öffnen → **„Einstellungen“** → bei Kanal 1 **„Mit YouTube verbinden“**.
+2. Google-Konto wählen. Wenn Google fragt **„Konto oder Brand-Konto auswählen“**: den **richtigen Kanal** wählen.
+3. Warnung „Google hat diese App nicht überprüft“ → **„Erweitert“** → **„Weiter zu Mein YouTube Dashboard (unsicher)“** (es ist deine eigene App).
+4. Beide Häkchen erlauben → **„Weiter“**.
+5. Für Kanal 2 wiederholen und dabei den **anderen** Kanal auswählen.
+
+### Anleitung K: Geheimwörter erzeugen (`CRON_SECRET`, `SESSION_SECRET`, `TOKEN_ENCRYPTION_KEY`)
+Am einfachsten: Passwort-Manager → neues Passwort, **mindestens 40 Zeichen**, nur Buchstaben und Zahlen. Für jede Variable ein **eigenes**.
+*(Alternative, falls du ein Terminal hast: `openssl rand -hex 32`.)*
+
+---
+
+## 7. Offene Fragen an dich
+
+1. **Kanäle:** Wie heißen die beiden Kanäle, und wie lauten die Kanal-IDs (oder @Handles)?
+2. **Google-Konten:** Gehören beide Kanäle zum **selben** Google-Konto (z. B. als Brand-Konten) oder zu zwei verschiedenen? (Wichtig für Phase 5.)
+3. **Nur Shorts?** Laden die Kanäle ausschließlich Shorts hoch, oder auch lange Videos? Falls gemischt: Sollen lange Videos komplett ausgeblendet werden?
+4. **Vorschau in Phase 1:** Willst du Vercel schon in Phase 1 verbinden (empfohlen, eigener Vorschau-Link), oder reichen dir zunächst Screenshots?
+5. **Hochrechnung:** Sollen die Zähler zwischen zwei Schnappschüssen im gemessenen Tempo „weiterticken“ (als *geschätzt* markiert, wirkt lebendiger), oder nur echte Messwerte anzeigen?
+6. **Was heißt „24 Stunden“?** Gleitend („die letzten 24h ab jetzt“, empfohlen) oder „heute seit Mitternacht“? Oder beides?
+7. **Zeitzone:** Europe/Berlin?
+8. **Rennsport-Look:** Duell als Timing-Tower im F1-Stil (Positionen, Gaps, lila/grün/gelb) – ja? Gibt es eine Serie/Farbwelt, die du besonders magst (F1, WEC, DTM …)?
+9. **Dashboard-Schutz:** Reicht ein einzelnes Passwort (empfohlen, simpel), oder willst du dich lieber mit deinem Google-Konto anmelden?
+10. **Größe:** Wie viele Videos haben die Kanäle ungefähr? (Für die Kontingent-Rechnung. Bis ca. 2.000 pro Kanal ist alles entspannt.)
+11. **Später (nicht dringend):** Wie möchtest du Alarme bekommen: Telegram, Discord, E-Mail oder Push aufs Handy?

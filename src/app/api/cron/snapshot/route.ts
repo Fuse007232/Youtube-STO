@@ -1,5 +1,9 @@
-import { timingSafeEqual } from "node:crypto";
+import { CHANNELS } from "@/config/channels";
+import { isCronAuthorized } from "@/lib/auth/cron";
+import { getDataSource } from "@/lib/data";
 import { SupabaseStore } from "@/lib/db/SupabaseStore";
+import { runDailyReportIfDue } from "@/lib/report/run-report";
+import { runWatchdog } from "@/lib/watchdog/run-watchdog";
 import { getSupabase } from "@/lib/db/supabase";
 import { runAlerts } from "@/lib/alerts/run-alerts";
 import { runAnalyticsIfDue } from "@/lib/analytics/run-analytics";
@@ -18,21 +22,11 @@ import { YouTubeDataClient } from "@/lib/youtube/client";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-function authorized(req: Request): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return false;
-  const given = req.headers.get("authorization") ?? "";
-  const expected = `Bearer ${secret}`;
-  const a = Buffer.from(given);
-  const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
-
 async function handle(req: Request): Promise<Response> {
   if (!process.env.CRON_SECRET) {
     return Response.json({ error: "CRON_SECRET ist nicht gesetzt." }, { status: 500 });
   }
-  if (!authorized(req)) {
+  if (!isCronAuthorized(req)) {
     return Response.json({ error: "Nicht erlaubt." }, { status: 401 });
   }
   const key = process.env.YOUTUBE_API_KEY;
@@ -77,7 +71,15 @@ async function handle(req: Request): Promise<Response> {
       console.error("[cron/comments]", e);
       comments = { error: e instanceof Error ? e.message : String(e) };
     }
-    return Response.json({ ...result, analytics, alerts, comments }, { headers: { "Cache-Control": "no-store" } });
+    // Wächter (Probleme melden) und Rennbericht (ab 8 Uhr, 1× täglich).
+    const watchdog = await runWatchdog({ store, channels: CHANNELS }).catch((e) => ({ error: String(e) }));
+    const report = await runDailyReportIfDue({ store, getData: () => getDataSource().getDashboard() }).catch((e) => ({
+      error: String(e),
+    }));
+    return Response.json(
+      { ...result, analytics, alerts, comments, watchdog, report },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   } catch (e) {
     console.error("[cron/snapshot]", e);
     return Response.json(

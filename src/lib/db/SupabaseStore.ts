@@ -22,6 +22,9 @@ import type {
   ChannelSnapshotRow,
   CommentGainRow,
   CommentStore,
+  NotificationRow,
+  NotificationStore,
+  RemovedVideoRow,
   CompetitorStore,
   DashboardReader,
   RunFinish,
@@ -54,7 +57,7 @@ async function inBatches<T>(rows: T[], fn: (batch: T[]) => Promise<void>): Promi
 }
 
 export class SupabaseStore
-  implements SnapshotStore, DashboardReader, AnalyticsStore, AlertStore, CompetitorStore, TimingStore, ShortStore, CommentStore
+  implements SnapshotStore, DashboardReader, AnalyticsStore, AlertStore, CompetitorStore, TimingStore, ShortStore, CommentStore, NotificationStore
 {
   constructor(private readonly db: SupabaseClient) {}
 
@@ -730,6 +733,59 @@ export class SupabaseStore
       channelId: String(r.channel_id),
       commentsNow: Number(r.comments_now ?? 0),
       commentsBefore: Number(r.comments_before ?? 0),
+    }));
+  }
+
+  // ───────────── Rennbericht + Wächter (Phase 7) ─────────────
+
+  async claimNotification(row: { key: string; kind: NotificationRow["kind"]; summary: string }, at: number) {
+    const { data, error } = await this.db
+      .from("notifications")
+      .upsert({ key: row.key, kind: row.kind, summary: row.summary, created_at: iso(at) }, { onConflict: "key", ignoreDuplicates: true })
+      .select("key");
+    check(error, "Meldung vormerken");
+    return (data ?? []).length > 0;
+  }
+
+  async finishNotification(key: string, at: number, error: string | null) {
+    const { error: e } = await this.db
+      .from("notifications")
+      .update({ sent_at: error ? null : iso(at), error })
+      .eq("key", key);
+    check(e, "Meldung abschließen");
+  }
+
+  async releaseNotification(key: string) {
+    const { error } = await this.db.from("notifications").delete().eq("key", key);
+    check(error, "Meldung zurücknehmen");
+  }
+
+  async getRecentNotifications(limit: number): Promise<NotificationRow[]> {
+    const { data, error } = await this.db
+      .from("notifications")
+      .select("key, kind, summary, created_at, sent_at, error")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    check(error, "Meldungen lesen");
+    return (data ?? []).map((r) => ({
+      key: r.key,
+      kind: r.kind,
+      summary: r.summary ?? "",
+      createdAt: Date.parse(r.created_at),
+      sentAt: ms(r.sent_at),
+      error: r.error,
+    }));
+  }
+
+  async getRemovedOwnVideos(since: number): Promise<RemovedVideoRow[]> {
+    const { data, error } = await this.db.rpc("removed_own_videos", { p_since: iso(since) });
+    check(error, "Entfernte Shorts lesen");
+    return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+      id: String(r.id),
+      channelId: String(r.channel_id),
+      title: String(r.title ?? ""),
+      removedAt: Date.parse(String(r.removed_at)),
+      views: Number(r.views ?? 0),
     }));
   }
 }

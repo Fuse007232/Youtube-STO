@@ -21,6 +21,9 @@ import type {
   ChannelSnapshotRow,
   CommentGainRow,
   CommentStore,
+  NotificationRow,
+  NotificationStore,
+  RemovedVideoRow,
   CompetitorStore,
   DashboardReader,
   RunFinish,
@@ -40,7 +43,7 @@ const DAY = 24 * 3_600_000;
 
 /** Datenbank im Arbeitsspeicher – nur für Tests. Bildet die SQL-Logik nach. */
 export class MemoryStore
-  implements SnapshotStore, DashboardReader, AnalyticsStore, AlertStore, CompetitorStore, TimingStore, ShortStore, CommentStore
+  implements SnapshotStore, DashboardReader, AnalyticsStore, AlertStore, CompetitorStore, TimingStore, ShortStore, CommentStore, NotificationStore
 {
   channels = new Map<string, ChannelRow>();
   channelSnapshots: ChannelSnapshotRow[] = [];
@@ -54,6 +57,7 @@ export class MemoryStore
   analyticsVideos: (AnalyticsVideoRow & { period: string })[] = [];
   breakdowns: (BreakdownRow & { period: string })[] = [];
   comments = new Map<string, CommentItem>();
+  notifications = new Map<string, NotificationRow>();
 
   async upsertChannels(rows: ChannelRow[]) {
     rows.forEach((r) => this.channels.set(r.id, { ...this.channels.get(r.id), ...r, color: r.color ?? this.channels.get(r.id)?.color }));
@@ -352,5 +356,26 @@ export class MemoryStore
       if (v.comments > before) out.push({ id: v.id, channelId: v.channelId, commentsNow: v.comments, commentsBefore: before });
     }
     return out;
+  }
+
+  async claimNotification(row: { key: string; kind: NotificationRow["kind"]; summary: string }, at: number) {
+    if (this.notifications.has(row.key)) return false;
+    this.notifications.set(row.key, { ...row, createdAt: at, sentAt: null, error: null });
+    return true;
+  }
+  async finishNotification(key: string, at: number, error: string | null) {
+    const n = this.notifications.get(key);
+    if (n) this.notifications.set(key, { ...n, sentAt: error ? null : at, error });
+  }
+  async releaseNotification(key: string) {
+    this.notifications.delete(key);
+  }
+  async getRecentNotifications(limit: number) {
+    return [...this.notifications.values()].sort((a, b) => b.createdAt - a.createdAt).slice(0, limit);
+  }
+  async getRemovedOwnVideos(since: number): Promise<RemovedVideoRow[]> {
+    return [...this.videos.values()]
+      .filter((v) => v.removedAt !== null && v.removedAt >= since && this.channels.get(v.channelId)?.kind !== "competitor")
+      .map((v) => ({ id: v.id, channelId: v.channelId, title: v.title, removedAt: v.removedAt!, views: v.views }));
   }
 }

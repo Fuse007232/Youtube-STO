@@ -6,10 +6,11 @@ import { CHANNELS, type ChannelConfig } from "@/config/channels";
 import { COMPETITOR_CONFIG } from "@/config/competitors";
 import { isEmailConfigured, maskEmail } from "@/lib/alerts/email";
 import { isAuthenticated } from "@/lib/auth/server";
-import type { OAuthConnectionRow } from "@/lib/db/store";
+import type { NotificationRow, OAuthConnectionRow } from "@/lib/db/store";
 import { SupabaseStore } from "@/lib/db/SupabaseStore";
 import { getSupabase, isSupabaseConfigured } from "@/lib/db/supabase";
-import { formatAgo, formatDate } from "@/lib/format";
+import { formatAgo, formatDate, formatDayClock } from "@/lib/format";
+import { REPORT_HOUR } from "@/lib/report/run-report";
 import { isOAuthConfigured } from "@/lib/youtube/oauth";
 
 export const metadata: Metadata = { title: "Einstellungen · Shorts Live Timing" };
@@ -29,6 +30,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
   const disconnectedId = str("disconnected");
   const refreshed = str("refreshed");
   const mailed = str("mailed");
+  const reported = str("reported");
   const added = str("added");
   const removed = str("removed");
   const emailReady = isEmailConfigured();
@@ -38,11 +40,16 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
   const dbReady = isSupabaseConfigured();
   let connections: OAuthConnectionRow[] = [];
   let competitors: ChannelConfig[] = [];
+  let notifications: NotificationRow[] = [];
   let loadError: string | null = null;
   if (dbReady) {
     try {
       const store = new SupabaseStore(getSupabase());
-      [connections, competitors] = await Promise.all([store.getConnections(), store.getCompetitors()]);
+      [connections, competitors, notifications] = await Promise.all([
+        store.getConnections(),
+        store.getCompetitors(),
+        store.getRecentNotifications(20).catch(() => []),
+      ]);
     } catch (e) {
       loadError = e instanceof Error ? e.message : String(e);
     }
@@ -95,6 +102,11 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
       {mailed ? (
         <p role="status" className="mb-4 rounded-xl border border-sector-improved/40 bg-sector-improved/10 p-4 text-sm text-ink">
           ✓ Test-E-Mail wurde verschickt – schau in dein Postfach (ggf. auch in den Spam-Ordner).
+        </p>
+      ) : null}
+      {reported ? (
+        <p role="status" className="mb-4 rounded-xl border border-sector-improved/40 bg-sector-improved/10 p-4 text-sm text-ink">
+          ✓ Test-Rennbericht wurde verschickt – schau in dein Postfach.
         </p>
       ) : null}
       {refreshed ? (
@@ -293,6 +305,62 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
             </p>
           )}
         </div>
+      </section>
+
+      <section id="rennbericht" className="mt-6 scroll-mt-6 rounded-2xl border border-line bg-surface/80 p-5">
+        <h2 className="f1-heading text-sm text-ink">Rennbericht & Wächter</h2>
+        <ul className="mt-2 space-y-1 text-xs text-ink-2">
+          <li>
+            🏁 <b className="text-ink">Rennbericht:</b> jeden Morgen ab {REPORT_HOUR} Uhr per E-Mail – die letzten 24 Std. je
+            Kanal, bester Short, Fahrerwertung, Alarme, Konkurrenz-Radar und Boxenstrategie.
+          </li>
+          <li>
+            🛠️ <b className="text-ink">Wächter:</b> meldet sofort, wenn ein Short verschwindet (gelöscht/privat/gesperrt), die
+            Analytics-Verbindung abläuft, das Kontingent fast leer ist, Schnappschüsse fehlschlagen oder der Zeitplaner pausiert.
+            Jedes Problem nur einmal. Zusätzlich prüft Vercel 1× täglich unabhängig, ob der Zeitplaner läuft.
+          </li>
+        </ul>
+        <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-line bg-bg/40 p-4">
+          {emailReady ? (
+            <>
+              <p className="flex-1 text-sm text-ink-2">
+                Letzter Rennbericht:{" "}
+                {(() => {
+                  const r = notifications.find((n) => n.kind === "report" && n.sentAt);
+                  return r?.sentAt ? <b className="text-ink">{formatDayClock(r.sentAt)}</b> : <span className="text-muted">noch keiner</span>;
+                })()}
+              </p>
+              <form method="post" action="/api/report/test">
+                <button
+                  type="submit"
+                  className="rounded-lg border border-line px-3 py-2 text-xs text-ink-2 transition hover:border-line-strong hover:text-ink"
+                >
+                  🏁 Rennbericht jetzt senden
+                </button>
+              </form>
+            </>
+          ) : (
+            <p className="text-sm text-ink-2">○ Braucht die E-Mail-Einrichtung (siehe Boxenfunk oben).</p>
+          )}
+        </div>
+        {notifications.some((n) => n.kind === "watch") ? (
+          <div className="mt-4">
+            <p className="text-[11px] uppercase tracking-wider text-muted">Letzte Wächter-Meldungen</p>
+            <ul className="mt-1 divide-y divide-line text-xs">
+              {notifications
+                .filter((n) => n.kind === "watch")
+                .slice(0, 8)
+                .map((n) => (
+                  <li key={n.key} className="flex justify-between gap-3 py-1.5">
+                    <span className="text-ink-2">{n.summary}</span>
+                    <span className="shrink-0 text-muted">{formatAgo(n.createdAt, now)}</span>
+                  </li>
+                ))}
+            </ul>
+          </div>
+        ) : (
+          <p className="mt-3 text-xs text-muted">Bisher keine Wächter-Meldungen – alles im grünen Bereich.</p>
+        )}
       </section>
 
       <section className="mt-6 rounded-2xl border border-line bg-surface/60 p-5 text-xs text-muted">

@@ -226,6 +226,35 @@ export interface CommentGainRow {
   commentsBefore: number;
 }
 
+/** Rennbericht + Wächter: verschickte Meldungen (Phase 7). */
+export interface NotificationRow {
+  key: string;
+  kind: "report" | "watch";
+  summary: string;
+  createdAt: number;
+  sentAt: number | null;
+  error: string | null;
+}
+
+export interface RemovedVideoRow {
+  id: string;
+  channelId: string;
+  title: string;
+  removedAt: number;
+  views: number;
+}
+
+export interface NotificationStore {
+  /** Meldung vormerken. false = gab es schon (nicht noch einmal schicken). */
+  claimNotification(row: { key: string; kind: NotificationRow["kind"]; summary: string }, at: number): Promise<boolean>;
+  finishNotification(key: string, at: number, error: string | null): Promise<void>;
+  /** Vormerkung zurücknehmen (z. B. wenn der Versand scheiterte → später erneut versuchen). */
+  releaseNotification(key: string): Promise<void>;
+  getRecentNotifications(limit: number): Promise<NotificationRow[]>;
+  /** Eigene Shorts, die seit `since` verschwunden sind (SQL `removed_own_videos`). */
+  getRemovedOwnVideos(since: number): Promise<RemovedVideoRow[]>;
+}
+
 /** Lesen (Dashboard). */
 export interface DashboardReader {
   getChannels(ids: string[]): Promise<ChannelRow[]>;

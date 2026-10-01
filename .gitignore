@@ -24,3 +24,6 @@ supabase/.branches/
 coverage/
 npm-debug.log*
 .DS_Store
+*.pem
+.pnp
+.pnp.*

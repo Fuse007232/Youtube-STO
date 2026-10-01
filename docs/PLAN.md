@@ -1,6 +1,6 @@
 # Projektplan: YouTube-Shorts-Dashboard
 
-> Stand: Phase 0 (Planung). Noch kein Code.
+> Stand: Phase 1 fertig (Dashboard mit Beispieldaten). Wartet auf dein Design-Feedback.
 > Dieses Dokument wird nach jeder Phase aktualisiert (Status-Tabelle unten).
 
 ---
@@ -24,8 +24,8 @@ YouTube hat keine Echtzeit-Schnittstelle. Deshalb holt ein Hintergrund-Job alle 
 
 | Phase | Inhalt | Status |
 |---|---|---|
-| 0 | Planung (dieses Dokument) | ✅ fertig, wartet auf dein OK |
-| 1 | Grundgerüst + Dashboard mit Beispieldaten | ⏳ offen |
+| 0 | Planung (dieses Dokument) | ✅ fertig |
+| 1 | Grundgerüst + Dashboard mit Beispieldaten | ✅ gebaut, wartet auf dein Design-OK |
 | 2 | Echte Zahlen über die YouTube Data API | ⏳ offen |
 | 3 | Supabase-Datenbank, Schnappschüsse, 24h-Duell | ⏳ offen |
 | 4 | Veröffentlichung auf Vercel (inkl. Passwortschutz und Zeitplaner) | ⏳ offen |
@@ -134,9 +134,9 @@ Tageskontingent: **10.000 Einheiten**. Wir nutzen **kein** `search.list` (kostet
 
 **Strategie:**
 - Alle 15 Min.: Kanalzahlen (1) + neueste 50 Uploads pro Kanal (2) + Statistiken der Videos der letzten 7 Tage (~2).
-- Jede Stunde: Statistiken **aller** Videos (bei 2 × 300 Videos = 12).
+- Jede Stunde: Statistiken **aller** Videos (bei 350 + 100 Shorts = 9 Abfragen).
 - Einmal täglich: komplette Upload-Liste neu einlesen (Titel-Änderungen, gelöschte Videos).
-- **Rechnung:** ca. 96 × 5 + 24 × 12 + 12 ≈ **800 Einheiten/Tag**, also unter 10 % des Kontingents. Genug Luft für Konkurrenz-Kanäle.
+- **Rechnung:** ca. 96 × 5 + 24 × 9 + 9 ≈ **700 Einheiten/Tag**, also unter 10 % des Kontingents. Genug Luft für Konkurrenz-Kanäle.
 - Jeder Lauf schreibt seinen Verbrauch in `quota_log`. Das Dashboard zeigt eine kleine Kontingent-Anzeige.
 
 ### 3.6 Speicherplatz (Supabase Free = 500 MB)
@@ -151,10 +151,10 @@ Geschätzter Bedarf: deutlich unter 100 MB pro Jahr.
 
 ### 3.7 Bekannte Einschränkungen (eingeplant)
 
-- **Keine Echtzeit:** Schnappschüsse alle 15 Min. Zwischen zwei Schnappschüssen kann das Dashboard optional eine **Hochrechnung** anzeigen (Zahl tickt im zuletzt gemessenen Tempo weiter, klar als „geschätzt“ markiert). → Frage an dich, siehe unten.
+- **Keine Echtzeit:** Schnappschüsse alle 15 Min. Zwischen zwei Schnappschüssen zeigt das Dashboard eine **Hochrechnung** (Aufrufe ticken im zuletzt gemessenen Tempo weiter, markiert mit „≈ live hochgerechnet“). **Entschieden: ja.** Abos werden nicht hochgerechnet (gerundet).
 - **Gerundete Abozahlen:** Öffentlich zeigt YouTube nur 3 gültige Stellen (z. B. 12.300 statt 12.347). Bei kleinen 24h-Änderungen zeigt das Duell deshalb oft „±0“. Ab Phase 5 holen wir die **exakten** Abo-Gewinne über die Analytics API (aber mit 1–2 Tagen Verzögerung). Das Dashboard kennzeichnet beides.
 - **Analytics-Verzögerung:** 1–2 Tage. Der tägliche Abruf holt deshalb immer die letzten 3 Tage neu.
-- **Shorts erkennen:** Die API hat kein „ist ein Short“-Feld. Möglichkeiten: Länge ≤ 3 Min., oder ein inoffizieller Trick über eine spezielle Shorts-Playlist. → Frage an dich.
+- **Shorts erkennen:** Die API hat kein „ist ein Short“-Feld. **Entschieden:** Beide Kanäle laden nur Shorts hoch → alle Uploads zählen als Shorts, keine Erkennung nötig.
 - **Aufrufe bei Shorts:** Seit 2025 zählt YouTube bei Shorts jede Wiedergabe (auch Wiederholungen). In der Analytics API gibt es zusätzlich „engaged views“. Wir zeigen das ab Phase 5 getrennt.
 
 ---
@@ -185,8 +185,10 @@ Geschätzter Bedarf: deutlich unter 100 MB pro Jahr.
 - *Optional, aber empfohlen:* Vercel schon jetzt mit dem Repo verbinden (Anleitung D unten, ca. 5 Min.). Dann bekommst du bei jedem Push einen Vorschau-Link und kannst das Dashboard selbst anklicken, auch am Handy. Ohne Vercel schicke ich dir Screenshots, denn diese Cloud-Session hat keinen Link, den du im Browser öffnen könntest.
 
 **Fertig, wenn:**
-- `npm run build`, `npm run lint` und `npm test` laufen fehlerfrei durch.
-- Du hast das Dashboard gesehen (Vorschau-Link oder Screenshots) und gibst dein OK zum Design.
+- `npm run build`, `npm run lint` und `npm test` laufen fehlerfrei durch. ✅
+- Du hast das Dashboard gesehen (Vorschau-Link oder Screenshots) und gibst dein OK zum Design. ⏳
+
+**Ergebnis Phase 1:** Widgets `status-bar`, `channel-overview`, `duel-tower`, `trend-chart`, `top-shorts`; Beispieldaten realistisch für BRV (~102K Abos, ~350 Shorts) und GRA (~28K Abos, ~100 Shorts) inkl. YouTube-Rundung der Abos; 28 Tests.
 
 ---
 
@@ -276,11 +278,11 @@ Geschätzter Bedarf: deutlich unter 100 MB pro Jahr.
 ### Phase 6: Extras
 
 Jedes Extra ist ein eigener kleiner Schritt:
-1. **„Short geht ab“-Alarm:** Nach jedem Schnappschuss wird geprüft, ob ein Short in der letzten Stunde deutlich schneller wächst als üblich (verglichen mit den Startkurven deiner bisherigen Shorts). Treffer landen in `alerts` und werden dir geschickt (Weg nach deiner Wahl, z. B. Telegram).
+1. **„Short geht ab“-Alarm:** Nach jedem Schnappschuss wird geprüft, ob ein Short in der letzten Stunde deutlich schneller wächst als üblich (verglichen mit den Startkurven deiner bisherigen Shorts). Treffer landen in `alerts` und werden dir geschickt. **Entschieden:** bevorzugt **Push aufs Handy** (Web-Push: Dashboard zum Startbildschirm hinzufügen, auf dem iPhone nötig), sonst **E-Mail** (z. B. über den Dienst Resend, Variable `RESEND_API_KEY`).
 2. **Beste Upload-Uhrzeit:** Auswertung der ersten 24/48h jedes Shorts nach Wochentag und Uhrzeit (Heatmap).
 3. **Konkurrenz-Vergleich:** Konkurrenz-Kanäle per ID eintragen (`kind = competitor`), gleiche Schnappschüsse, eigenes Widget.
 
-**Wo ich dich brauche:** Entscheidung über den Benachrichtigungsweg und ggf. einen Bot-Schlüssel (z. B. Telegram), Liste der Konkurrenz-Kanäle.
+**Wo ich dich brauche:** Push-Benachrichtigungen auf dem Handy erlauben (bzw. E-Mail-Dienst einrichten), Liste der Konkurrenz-Kanäle.
 
 ---
 
@@ -301,7 +303,8 @@ Jedes Extra ist ein eigener kleiner Schritt:
 | `GOOGLE_CLIENT_ID` | OAuth-Kennung deiner App | Anleitung I | 5 | Vercel |
 | `GOOGLE_CLIENT_SECRET` | OAuth-Geheimnis deiner App | Anleitung I | 5 | Vercel |
 | `TOKEN_ENCRYPTION_KEY` | Schlüssel zum Verschlüsseln der Refresh-Tokens | Selbst erzeugen (Anleitung K) | 5 | Vercel |
-| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Nur falls Alarm per Telegram | später | 6 | Vercel |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | Schlüsselpaar für Web-Push aufs Handy | erzeuge ich, du trägst es ein | 6 | Vercel |
+| `RESEND_API_KEY`, `ALERT_EMAIL_TO` | Nur falls Alarm per E-Mail | später | 6 | Vercel |
 
 **Keine Geheimnisse (dürfen in den Code / Chat):** die beiden Kanal-IDs (`UC…`). Die stehen in `src/config/channels.ts`.
 
@@ -389,10 +392,10 @@ Jedes Extra ist ein eigener kleiner Schritt:
 
 ### Anleitung J: Beide Kanäle im Dashboard verbinden (Phase 5)
 1. Dashboard öffnen → **„Einstellungen“** → bei Kanal 1 **„Mit YouTube verbinden“**.
-2. Google-Konto wählen. Wenn Google fragt **„Konto oder Brand-Konto auswählen“**: den **richtigen Kanal** wählen.
+2. Mit dem **Google-Konto von Bra1nrotvault** anmelden (deine Kanäle liegen in zwei verschiedenen Google-Konten, keine Brand-Konten).
 3. Warnung „Google hat diese App nicht überprüft“ → **„Erweitert“** → **„Weiter zu Mein YouTube Dashboard (unsicher)“** (es ist deine eigene App).
 4. Beide Häkchen erlauben → **„Weiter“**.
-5. Für Kanal 2 wiederholen und dabei den **anderen** Kanal auswählen.
+5. Für Granny Aura wiederholen und dabei mit dem **anderen Google-Konto** anmelden („Anderes Konto verwenden“).
 
 ### Anleitung K: Geheimwörter erzeugen (`CRON_SECRET`, `SESSION_SECRET`, `TOKEN_ENCRYPTION_KEY`)
 Am einfachsten: Passwort-Manager → neues Passwort, **mindestens 40 Zeichen**, nur Buchstaben und Zahlen. Für jede Variable ein **eigenes**.
@@ -400,16 +403,21 @@ Am einfachsten: Passwort-Manager → neues Passwort, **mindestens 40 Zeichen**, 
 
 ---
 
-## 7. Offene Fragen an dich
+## 7. Entscheidungen (deine Antworten vom 01.10.2026)
 
-1. **Kanäle:** Wie heißen die beiden Kanäle, und wie lauten die Kanal-IDs (oder @Handles)?
-2. **Google-Konten:** Gehören beide Kanäle zum **selben** Google-Konto (z. B. als Brand-Konten) oder zu zwei verschiedenen? (Wichtig für Phase 5.)
-3. **Nur Shorts?** Laden die Kanäle ausschließlich Shorts hoch, oder auch lange Videos? Falls gemischt: Sollen lange Videos komplett ausgeblendet werden?
-4. **Vorschau in Phase 1:** Willst du Vercel schon in Phase 1 verbinden (empfohlen, eigener Vorschau-Link), oder reichen dir zunächst Screenshots?
-5. **Hochrechnung:** Sollen die Zähler zwischen zwei Schnappschüssen im gemessenen Tempo „weiterticken“ (als *geschätzt* markiert, wirkt lebendiger), oder nur echte Messwerte anzeigen?
-6. **Was heißt „24 Stunden“?** Gleitend („die letzten 24h ab jetzt“, empfohlen) oder „heute seit Mitternacht“? Oder beides?
-7. **Zeitzone:** Europe/Berlin?
-8. **Rennsport-Look:** Duell als Timing-Tower im F1-Stil (Positionen, Gaps, lila/grün/gelb) – ja? Gibt es eine Serie/Farbwelt, die du besonders magst (F1, WEC, DTM …)?
-9. **Dashboard-Schutz:** Reicht ein einzelnes Passwort (empfohlen, simpel), oder willst du dich lieber mit deinem Google-Konto anmelden?
-10. **Größe:** Wie viele Videos haben die Kanäle ungefähr? (Für die Kontingent-Rechnung. Bis ca. 2.000 pro Kanal ist alles entspannt.)
-11. **Später (nicht dringend):** Wie möchtest du Alarme bekommen: Telegram, Discord, E-Mail oder Push aufs Handy?
+| Thema | Entscheidung |
+|---|---|
+| Kanäle | **Bra1nrotvault** `UCJtW0caGhgqEWxNh2HcsGPg` (~102K Abos, ~350 Shorts) · **Granny Aura** `UCSxDp-sHQ49VwIz0Ix9fusA` (~28K Abos, ~100 Shorts) |
+| Google-Konten | Zwei verschiedene Google-Konten (keine Brand-Konten) → in Phase 5 je Kanal mit dem jeweiligen Konto verbinden |
+| Videos | Nur Shorts → alle Uploads zählen als Shorts |
+| Vorschau | Vercel ist verbunden (Anleitung D erledigt) |
+| Hochrechnung | Ja, als „≈ live hochgerechnet“ markiert |
+| „24 Stunden“ | Gleitend: die letzten 24h bis jetzt |
+| Zeitzone | Europe/Berlin |
+| Design | F1-Timing-Tower (Positionen, Abstände, lila/grün/gelb) |
+| Dashboard-Schutz | Einfaches Passwort |
+| Alarme (Phase 6) | Push aufs Handy, sonst E-Mail |
+
+## 8. Offene Fragen
+
+Aktuell keine. Neue Fragen kommen hier dazu.

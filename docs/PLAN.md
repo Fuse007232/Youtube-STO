@@ -1,6 +1,6 @@
 # Projektplan: YouTube-Shorts-Dashboard
 
-> Stand: Phase 6 läuft – Extra 1 („Short geht ab“-Alarm per E-Mail) gebaut, wartet auf Resend-Schlüssel in Vercel.
+> Stand: Phase 6 läuft – Alarm per E-Mail fertig (01.10.2026, Test-Mail angekommen). Jetzt: Konkurrenz-Vergleich (Plan 6.3).
 > Dieses Dokument wird nach jeder Phase aktualisiert (Status-Tabelle unten).
 
 ---
@@ -30,7 +30,7 @@ YouTube hat keine Echtzeit-Schnittstelle. Deshalb holt ein Hintergrund-Job alle 
 | 3 | Supabase-Datenbank, Schnappschüsse, 24h-Duell | ✅ fertig (erste Schnappschüsse am 01.10.2026 ab 18:50) |
 | 4 | Veröffentlichung auf Vercel (inkl. Passwortschutz und Zeitplaner) | ✅ fertig (Login aktiv, Cron seit 01.10. 19:15) |
 | 5 | OAuth-Login + YouTube Analytics API | ✅ fertig (beide Kanäle verbunden) |
-| 6 | Extras (Alarm, beste Upload-Zeit, Konkurrenz) | 🔄 Alarm gebaut; Upload-Zeit + Konkurrenz offen |
+| 6 | Extras (Alarm, beste Upload-Zeit, Konkurrenz) | 🔄 Alarm ✅; Konkurrenz in Arbeit; Upload-Zeit offen |
 
 ---
 
@@ -308,7 +308,7 @@ Geschätzter Bedarf: deutlich unter 100 MB pro Jahr.
 ### Phase 6: Extras
 
 Jedes Extra ist ein eigener kleiner Schritt:
-1. **„Short geht ab“-Alarm** ✅ gebaut (01.10.2026). **Entschieden:** erst mal **nur E-Mail** über Resend (Gratis-Plan, ohne eigene Domain nur an die Konto-E-Mail), kein Push.
+1. **„Short geht ab“-Alarm** ✅ fertig (01.10.2026, Test-Mail angekommen – landete zuerst im Spam). **Entschieden:** erst mal **nur E-Mail** über Resend (Gratis-Plan, ohne eigene Domain nur an die Konto-E-Mail), kein Push.
    - Nach jedem Schnappschuss (Cron) prüft `runAlerts` alle eigenen Shorts:
      - 🚀 **Raketenstart:** Short jünger als 24 Std. schafft in der letzten Stunde ≥ 50 % der üblichen Kanal-Aufrufe pro Stunde.
      - 📈 **Ausbruch:** älterer Short schafft in der letzten Stunde ≥ 3× seinen Stundenschnitt der 24 Std. davor (braucht 25 Std. Verlauf).
@@ -316,7 +316,37 @@ Jedes Extra ist ein eigener kleiner Schritt:
    - Alarme stehen in der Tabelle `alerts` (Migration 0005) und im Widget **„Boxenfunk“**. Einstellungen: Status + „Test-E-Mail senden“.
    - Push aufs Handy ist weiter möglich (später).
 2. **Beste Upload-Uhrzeit:** Auswertung der ersten 24/48h jedes Shorts nach Wochentag und Uhrzeit (Heatmap).
-3. **Konkurrenz-Vergleich:** Konkurrenz-Kanäle per ID eintragen (`kind = competitor`), gleiche Schnappschüsse, eigenes Widget.
+3. **Konkurrenz-Vergleich** (Plan vom 01.10.2026, siehe 6.3 unten).
+
+#### 6.3 Konkurrenz-Vergleich: Plan
+
+**Ziel:** Fremde Shorts-Kanäle beobachten und in einer F1-artigen **„Fahrerwertung“** mit deinen beiden Kanälen vergleichen.
+
+**Was geht – was nicht:**
+- ✅ Alles Öffentliche über die YouTube Data API: Abos (gerundet), Aufrufe, Anzahl Shorts, Aufrufe pro Short, 24h-Gewinne, Tempo, Upload-Rhythmus, beste Shorts.
+- ❌ **Keine** YouTube-Analytics-Daten (Watchtime, exakte Abos, Herkunft): Die gibt YouTube nur dem Kanal-Besitzer.
+
+**Bedienung:**
+- Einstellungen → Bereich „Konkurrenz“ → Kanal-Link, `@Handle` oder Kanal-ID einfügen → „Hinzufügen“. Das Dashboard findet den Kanal selbst (`channels.list?forHandle=` = 1 Einheit, **kein** teures `search.list`).
+- Jeder Konkurrent bekommt automatisch ein 3-Buchstaben-Kürzel und eine eigene Farbe aus der geprüften Farbpalette. „Entfernen“ löscht ihn samt seiner Daten.
+- Direkt nach dem Hinzufügen wird ein Schnappschuss ausgelöst → erste Zahlen nach ca. 1 Minute; 24h-Werte nach 24 Std.
+
+**Kontingent (Grenze: 8 Konkurrenten):**
+- Kanalzahlen laufen im selben `channels.list`-Aufruf mit (bis 50 Kanäle = 1 Einheit).
+- Pro Konkurrent nur die **neuesten 200 Shorts** (Konkurrenten können Tausende haben): schneller Lauf ca. +2–3 Einheiten, voller Lauf (stündlich) ca. +8 Einheiten → **ca. 430 Einheiten/Tag pro Konkurrent**.
+- Eigene Kanäle ~1.000/Tag + 8 Konkurrenten ~3.500/Tag → unter der Hälfte von 10.000. Die Einstellungsseite zeigt die Schätzung.
+- „Aufrufe 24h“ bei Konkurrenten = Gewinn ihrer beobachteten (neuesten 200) Shorts – dort passiert bei Shorts-Kanälen fast das ganze Wachstum. Ältere Shorts werden nie fälschlich als „gelöscht“ markiert.
+
+**Technik:**
+1. Migration 0007: `channels.color` (Teamfarbe) – Konkurrenten stehen in `channels` mit `kind = 'competitor'` (Spalte gibt es seit Phase 3).
+2. `src/lib/youtube/resolve-channel.ts`: Link/@Handle/ID erkennen → `channels.list` (forHandle bzw. id).
+3. `run-snapshot`: eigene Kanäle + Konkurrenten aus der DB; je Kanal eigenes Seiten-Limit (eigene: alle, Konkurrenten: 4 Seiten = 200); „entfernt“ nur bei vollständig gelesener Upload-Liste.
+4. `DashboardData.rivals` (gleiche Form wie `channels`) + Kennzahlen je Kanal: Uploads 7 Tage, Ø Aufrufe pro Short (Shorts der letzten 30 Tage), bester Short 24h.
+5. Widget **„Fahrerwertung“** (volle Breite): alle Kanäle als Rangliste mit Positionswechsel-Animation, deine Kanäle hervorgehoben, umschaltbar nach Aufrufe 24h / Abos / Tempo / Ø pro Short / Uploads; Abstand zum Führenden. Ohne Konkurrenten: Hinweis „Konkurrenz hinzufügen“.
+6. Einstellungen: hinzufügen, Liste mit Kürzel/Farbe/Abos, entfernen, Kontingent-Schätzung. Routen `/api/competitors/add|remove` (mit Login-Prüfung).
+7. Beispieldaten: 3 erfundene Konkurrenten für Design-Tests. Tests für Link-Erkennung, Seiten-Limit, Kennzahlen.
+
+**Fertig, wenn:** Du in den Einstellungen deine Konkurrenten einträgst und sie nach wenigen Minuten in der Fahrerwertung neben deinen Kanälen stehen.
 
 **Wo ich dich brauche:** Resend-Konto + `RESEND_API_KEY`/`ALERT_EMAIL_TO` in Vercel (Alarm), Liste der Konkurrenz-Kanäle (Vergleich).
 

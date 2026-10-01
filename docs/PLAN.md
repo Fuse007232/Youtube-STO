@@ -1,6 +1,6 @@
 # Projektplan: YouTube-Shorts-Dashboard
 
-> Stand: Phase 6 läuft – Alarm per E-Mail ✅, Konkurrenz-Vergleich ✅ gebaut (01.10.2026, wartet auf eingetragene Konkurrenten). Offen: beste Upload-Uhrzeit.
+> Stand: Phase 6 läuft – Alarm per E-Mail ✅, Konkurrenz-Vergleich ✅ gebaut (01.10.2026, wartet auf eingetragene Konkurrenten). Jetzt: beste Upload-Uhrzeit (Plan 6.2).
 > Dieses Dokument wird nach jeder Phase aktualisiert (Status-Tabelle unten).
 
 ---
@@ -315,8 +315,40 @@ Jedes Extra ist ein eigener kleiner Schritt:
    - Immer ≥ 2.000 Aufrufe/Std.; pro Short höchstens 1 Alarm in 24 Std.; mehrere Treffer = eine E-Mail. Grenzwerte in `src/config/app.ts` (`alerts`).
    - Alarme stehen in der Tabelle `alerts` (Migration 0005) und im Widget **„Boxenfunk“**. Einstellungen: Status + „Test-E-Mail senden“.
    - Push aufs Handy ist weiter möglich (später).
-2. **Beste Upload-Uhrzeit:** Auswertung der ersten 24/48h jedes Shorts nach Wochentag und Uhrzeit (Heatmap).
+2. **Beste Upload-Uhrzeit** („Boxenstrategie“) – Plan vom 01.10.2026, siehe 6.2 unten.
 3. **Konkurrenz-Vergleich** ✅ gebaut (01.10.2026, siehe 6.3 unten).
+
+#### 6.2 Beste Upload-Uhrzeit („Boxenstrategie“): Plan
+
+**Ziel:** Eine ehrliche, mit der Zeit immer genauere Antwort auf „Wann soll ich hochladen?“ – mit Angabe, **wie sicher** die Aussage ist, und Vorschlägen für **Test-Uploads**.
+
+**Ausgangslage (Daten vom 01.10.2026):** BRV hat 186 von 332 Shorts um 13 Uhr hochgeladen, GRA 41 von 101 – andere Uhrzeiten sind kaum getestet. Wochentage sind gleichmäßig verteilt. Die Konkurrenz postet zu ganz anderen Zeiten (früh morgens, 16, 20, 21 Uhr). → Man kann nur über getestete Zeiten etwas sagen; dafür gibt es Sicherheits-Stufen und Test-Vorschläge.
+
+**Vier Datenquellen – sofort nutzbar bzw. mit der Zeit besser:**
+1. **Historie (ab sofort):** alle bisherigen Shorts, die mind. 7 Tage alt sind. Leistung = Aufrufe geteilt durch den Median der Kanal-Shorts, die ±15 Tage um denselben Zeitpunkt erschienen sind („Leistungs-Index“, 1,0 = normal). So zählen Kanalwachstum und Short-Alter nicht mit.
+2. **Startkurve (ab jetzt, genauer):** Für jeden neuen Short die Aufrufe **nach genau 24 Stunden** aus den 15-Minuten-Schnappschüssen (die ersten 48h werden nie verdichtet). Normiert auf den Median der anderen 24h-Werte des Kanals. Wo vorhanden, ersetzt dieser Wert die Historie.
+3. **Zuschauer-Aktivität (nach 1–3 Tagen):** Wann deine Kanäle über den Tag Aufrufe bekommen (Kanal-Schnappschüsse der letzten 14 Tage, nach Stunde) → zeigt, wann dein Publikum schaut.
+4. **Konkurrenz-Muster:** dieselbe Historien-Auswertung für die Shorts deiner Konkurrenten (je Kanal normiert, zusammengefasst).
+
+**Auswertung (reine, getestete Rechenfunktionen):**
+- Zeitfenster: 2-Stunden-Blöcke (Berliner Zeit) × Wochentag; dazu die Randwerte „nur Uhrzeit“ und „nur Wochentag“ (viel mehr Daten je Feld → verlässlicher).
+- Robust gegen Ausreißer: Mittelwert im logarithmischen Maßstab, Einzelwerte gekappt (ein viraler Short verzerrt nicht alles), **Schrumpfung Richtung 1,0** bei wenigen Daten (ein Glückstreffer macht noch keine Empfehlung).
+- **Empfehlung:** bestes Zeitfenster mit mind. 3 Shorts, Vergleich mit deinem Standard-Zeitfenster (dem am häufigsten genutzten) in %, Sicherheit „deutlich“ / „Tendenz“ / „zu wenig Daten“ (nach Streuung und Anzahl).
+- **Test-Vorschläge:** wenig getestete Zeitfenster, in denen dein Publikum aktiv ist bzw. die bei der Konkurrenz gut laufen.
+- Uhrzeit zusätzlich in **New-York-Zeit** (dein größtes Publikum ist in den USA).
+
+**Anzeige: Widget „Boxenstrategie“ (volle Breite):**
+- Empfehlungskarte („Do · 17–19 Uhr = 11–13 Uhr New York · +18 % gegenüber deinem Standard · Tendenz“) + Test-Vorschläge.
+- Heatmap Wochentag × Uhrzeit in den Dashboard-Farben: grün = besser als normal, gelb = schwächer, grau = normal, **lila = bestes Feld**; jede Zelle mit Zahl („1,3×“) und Anzahl Shorts; wenig Daten = blass mit „?“.
+- Balken „nach Uhrzeit“ und „nach Wochentag“, Kurve „Wann dein Publikum schaut“.
+- Umschalter BRV / GRA / Konkurrenz.
+- **Testprotokoll:** deine letzten Uploads mit Uhrzeit und Ergebnis-Index – so siehst du, ob ein Test geklappt hat.
+
+**Technik:** Migration 0008 (SQL `video_first_day_views()` für die 24h-Werte, `channel_hourly_activity()` für die Aktivität), `src/lib/metrics/upload-timing.ts` (Index, Zeitfenster, Schrumpfung, Empfehlung – mit Tests), `DashboardData.uploadTiming`, Widget `upload-timing`, Beispieldaten.
+
+**Bewusst nicht:** YouTube-Analytics-Tageswerte pro Video als „erste Tage“ – Analytics zählt in kalifornischen Kalendertagen; je nach Upload-Uhrzeit wäre „Tag 1“ mal 20, mal 10 Stunden lang → genau die Uhrzeit-Verzerrung, die wir vermeiden wollen.
+
+**Fertig, wenn:** Das Widget mit deinen echten Daten eine Empfehlung samt Sicherheit zeigt; nach 1–3 Tagen erscheint die Aktivitäts-Kurve, nach einigen Wochen werden die 24h-Startkurven zur Hauptquelle.
 
 #### 6.3 Konkurrenz-Vergleich: Plan
 

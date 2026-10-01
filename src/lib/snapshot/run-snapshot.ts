@@ -1,4 +1,5 @@
 import { CHANNELS, type ChannelConfig } from "@/config/channels";
+import { COMPETITOR_CONFIG } from "@/config/competitors";
 import type {
   RunMode,
   RunRow,
@@ -89,6 +90,7 @@ export async function runSnapshot(opts: RunSnapshotOptions): Promise<RunSnapshot
           kind: c.kind,
           uploadsPlaylistId: yt.contentDetails?.relatedPlaylists?.uploads ?? null,
           avatarUrl: pickThumbnail(yt.snippet?.thumbnails),
+          color: c.color,
         };
       }),
     );
@@ -99,9 +101,11 @@ export async function runSnapshot(opts: RunSnapshotOptions): Promise<RunSnapshot
     const playlistIdsPerChannel = await Promise.all(
       channels.map(async (c) => {
         const uploads = byId.get(c.id)!.contentDetails?.relatedPlaylists?.uploads;
-        if (!uploads) return { channelId: c.id, ids: [] as string[] };
-        const ids = await client.listPlaylistVideoIds(uploads, mode === "full" ? 40 : 1);
-        return { channelId: c.id, ids };
+        if (!uploads) return { channelId: c.id, ids: [] as string[], complete: false };
+        // Eigene Kanäle: alle Shorts. Konkurrenten: nur die neuesten (Kontingent).
+        const fullPages = c.kind === "competitor" ? COMPETITOR_CONFIG.maxPlaylistPages : 40;
+        const { ids, complete } = await client.listPlaylistPage(uploads, mode === "full" ? fullPages : 1);
+        return { channelId: c.id, ids, complete: mode === "full" && complete };
       }),
     );
 
@@ -150,8 +154,13 @@ export async function runSnapshot(opts: RunSnapshotOptions): Promise<RunSnapshot
     let removed = 0;
     const gone = new Set<string>();
     if (mode === "full") {
+      // Nur Kanäle, deren Upload-Liste vollständig gelesen wurde – sonst wären ältere
+      // (nicht mehr beobachtete) Shorts von Konkurrenten fälschlich „gelöscht“.
+      const complete = new Set(playlistIdsPerChannel.filter((p) => p.complete).map((p) => p.channelId));
       const seen = new Set(playlistIdsPerChannel.flatMap((p) => p.ids));
-      states.filter((s) => !s.removed && !seen.has(s.id)).forEach((s) => gone.add(s.id));
+      states
+        .filter((s) => complete.has(s.channelId) && !s.removed && !seen.has(s.id))
+        .forEach((s) => gone.add(s.id));
       await store.markVideosRemoved([...gone], now);
       removed = gone.size;
     }

@@ -1,5 +1,6 @@
 import type { AlertCandidate, HourRateRow } from "@/lib/alerts/detect";
 import type { AlertItem, AnalyticsDay, ChannelPoint, RankedShort } from "@/lib/data/types";
+import type { ChannelConfig } from "@/config/channels";
 import type {
   AlertStore,
   AnalyticsDayRow,
@@ -10,6 +11,7 @@ import type {
   ChannelRow,
   OAuthConnectionRow,
   ChannelSnapshotRow,
+  CompetitorStore,
   DashboardReader,
   RunFinish,
   RunMode,
@@ -24,7 +26,7 @@ import type {
 const DAY = 24 * 3_600_000;
 
 /** Datenbank im Arbeitsspeicher – nur für Tests. Bildet die SQL-Logik nach. */
-export class MemoryStore implements SnapshotStore, DashboardReader, AnalyticsStore, AlertStore {
+export class MemoryStore implements SnapshotStore, DashboardReader, AnalyticsStore, AlertStore, CompetitorStore {
   channels = new Map<string, ChannelRow>();
   channelSnapshots: ChannelSnapshotRow[] = [];
   videos = new Map<string, VideoUpsert & { statsAt: number; removedAt: number | null }>();
@@ -38,7 +40,7 @@ export class MemoryStore implements SnapshotStore, DashboardReader, AnalyticsSto
   breakdowns: (BreakdownRow & { period: string })[] = [];
 
   async upsertChannels(rows: ChannelRow[]) {
-    rows.forEach((r) => this.channels.set(r.id, r));
+    rows.forEach((r) => this.channels.set(r.id, { ...this.channels.get(r.id), ...r, color: r.color ?? this.channels.get(r.id)?.color }));
   }
   async insertChannelSnapshots(rows: ChannelSnapshotRow[]) {
     this.channelSnapshots.push(...rows);
@@ -214,5 +216,21 @@ export class MemoryStore implements SnapshotStore, DashboardReader, AnalyticsSto
       if (error) a.emailError = error;
       else a.emailedAt = at;
     }
+  }
+
+  // ───────────── Konkurrenten ─────────────
+  async getCompetitors(): Promise<ChannelConfig[]> {
+    return [...this.channels.values()]
+      .filter((c) => c.kind === "competitor")
+      .map((c) => ({ id: c.id, name: c.name, code: c.code, color: c.color ?? "#8b8a96", kind: "competitor" as const }));
+  }
+  async addCompetitor(row: { id: string; name: string; code: string; color: string; avatarUrl: string | null }) {
+    this.channels.set(row.id, { ...row, kind: "competitor", uploadsPlaylistId: null });
+  }
+  async removeCompetitor(id: string) {
+    if (this.channels.get(id)?.kind !== "competitor") return;
+    this.channels.delete(id);
+    this.channelSnapshots = this.channelSnapshots.filter((s) => s.channelId !== id);
+    for (const [vid, v] of this.videos) if (v.channelId === id) this.videos.delete(vid);
   }
 }

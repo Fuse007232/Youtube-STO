@@ -80,6 +80,14 @@ export class YouTubeDataClient {
 
   /** Alle Video-IDs einer Playlist (neueste zuerst). `maxPages` begrenzt die Kosten. */
   async listPlaylistVideoIds(playlistId: string, maxPages = 40): Promise<string[]> {
+    return (await this.listPlaylistPage(playlistId, maxPages)).ids;
+  }
+
+  /**
+   * Wie listPlaylistVideoIds, sagt aber zusätzlich, ob die Liste vollständig gelesen wurde
+   * (`complete`). Nur dann darf man „nicht mehr dabei“ als „gelöscht“ werten.
+   */
+  async listPlaylistPage(playlistId: string, maxPages = 40): Promise<{ ids: string[]; complete: boolean }> {
     const ids: string[] = [];
     let pageToken: string | undefined;
     for (let page = 0; page < maxPages; page++) {
@@ -93,9 +101,18 @@ export class YouTubeDataClient {
         if (item.contentDetails?.videoId) ids.push(item.contentDetails.videoId);
       }
       pageToken = data.nextPageToken;
-      if (!pageToken) break;
+      if (!pageToken) return { ids, complete: true };
     }
-    return ids;
+    return { ids, complete: false };
+  }
+
+  /** Kanal über @Handle oder alten Benutzernamen finden (1 Einheit). */
+  async listChannelsBy(by: { forHandle: string } | { forUsername: string }): Promise<YtChannel[]> {
+    const data = await this.get<YtListResponse<YtChannel>>("channels", {
+      part: "snippet,statistics,contentDetails",
+      ...by,
+    });
+    return data.items ?? [];
   }
 
   /**

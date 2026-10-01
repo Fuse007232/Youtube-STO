@@ -3,6 +3,7 @@ import { SupabaseStore } from "@/lib/db/SupabaseStore";
 import { getSupabase } from "@/lib/db/supabase";
 import { runAlerts } from "@/lib/alerts/run-alerts";
 import { runAnalyticsIfDue } from "@/lib/analytics/run-analytics";
+import { loadTrackedChannels } from "@/lib/competitors/tracked";
 import { runSnapshot } from "@/lib/snapshot/run-snapshot";
 import { YouTubeDataClient } from "@/lib/youtube/client";
 
@@ -47,6 +48,8 @@ async function handle(req: Request): Promise<Response> {
       client: new YouTubeDataClient(key),
       trigger,
       mode,
+      // Eigene Kanäle + Konkurrenten
+      channels: await loadTrackedChannels(store),
     });
     // Danach (höchstens alle 6 Std.) YouTube Analytics der verbundenen Kanäle holen.
     let analytics: unknown = null;

@@ -7,6 +7,8 @@ import type { YtChannel, YtVideo } from "../types";
 
 export const BRV_ID = "UCJtW0caGhgqEWxNh2HcsGPg";
 export const GRA_ID = "UCSxDp-sHQ49VwIz0Ix9fusA";
+/** Konkurrent mit vielen Shorts (für das 200-Shorts-Limit). */
+export const COMP_ID = "UCcompetitor0000000000AA";
 
 function makeVideos(prefix: string, channelId: string, count: number): YtVideo[] {
   return Array.from({ length: count }, (_, i) => ({
@@ -25,6 +27,7 @@ function makeVideos(prefix: string, channelId: string, count: number): YtVideo[]
 export const VIDEOS: Record<string, YtVideo[]> = {
   UU_BRV: makeVideos("brv", BRV_ID, 120),
   UU_GRA: makeVideos("gra", GRA_ID, 30),
+  UU_COMP: makeVideos("cmp", COMP_ID, 300),
 };
 
 export const CHANNELS: YtChannel[] = [
@@ -39,6 +42,12 @@ export const CHANNELS: YtChannel[] = [
     snippet: { title: "Granny Aura" },
     statistics: { viewCount: "16300000", subscriberCount: "28400", videoCount: "30" },
     contentDetails: { relatedPlaylists: { uploads: "UU_GRA" } },
+  },
+  {
+    id: COMP_ID,
+    snippet: { title: "Skibidi Lab", customUrl: "@skibidilab", thumbnails: { high: { url: "https://yt3.ggpht.com/cmp.jpg" } } },
+    statistics: { viewCount: "900000000", subscriberCount: "452000", videoCount: "300" },
+    contentDetails: { relatedPlaylists: { uploads: "UU_COMP" } },
   },
 ];
 
@@ -83,6 +92,11 @@ export function createFakeYouTube(opts: FakeOptions = {}) {
     }
 
     if (endpoint === "channels") {
+      const handle = p.get("forHandle");
+      if (handle) {
+        const h = handle.replace(/^@/, "").toLowerCase();
+        return json({ items: channels.filter((c) => c.snippet?.customUrl?.replace(/^@/, "").toLowerCase() === h) });
+      }
       const ids = (p.get("id") ?? "").split(",");
       return json({ items: channels.filter((c) => ids.includes(c.id)) });
     }

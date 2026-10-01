@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AlertCandidate, HourRateRow } from "@/lib/alerts/detect";
 import type { AlertItem, AnalyticsDay, ChannelPoint, RankedShort } from "@/lib/data/types";
+import type { ChannelConfig } from "@/config/channels";
 import type {
   AlertStore,
   AnalyticsDayRow,
@@ -11,6 +12,7 @@ import type {
   ChannelRow,
   OAuthConnectionRow,
   ChannelSnapshotRow,
+  CompetitorStore,
   DashboardReader,
   RunFinish,
   RunMode,
@@ -38,7 +40,7 @@ async function inBatches<T>(rows: T[], fn: (batch: T[]) => Promise<void>): Promi
   for (let i = 0; i < rows.length; i += WRITE_BATCH) await fn(rows.slice(i, i + WRITE_BATCH));
 }
 
-export class SupabaseStore implements SnapshotStore, DashboardReader, AnalyticsStore, AlertStore {
+export class SupabaseStore implements SnapshotStore, DashboardReader, AnalyticsStore, AlertStore, CompetitorStore {
   constructor(private readonly db: SupabaseClient) {}
 
   // ───────────── Schreiben ─────────────
@@ -52,6 +54,7 @@ export class SupabaseStore implements SnapshotStore, DashboardReader, AnalyticsS
         kind: r.kind,
         uploads_playlist_id: r.uploadsPlaylistId,
         avatar_url: r.avatarUrl,
+        ...(r.color ? { color: r.color } : {}),
         updated_at: new Date().toISOString(),
       })),
     );
@@ -186,7 +189,7 @@ export class SupabaseStore implements SnapshotStore, DashboardReader, AnalyticsS
   async getChannels(ids: string[]): Promise<ChannelRow[]> {
     const { data, error } = await this.db
       .from("channels")
-      .select("id, name, code, kind, uploads_playlist_id, avatar_url")
+      .select("id, name, code, kind, uploads_playlist_id, avatar_url, color")
       .in("id", ids);
     check(error, "Kanäle lesen");
     return (data ?? []).map((r) => ({
@@ -196,6 +199,7 @@ export class SupabaseStore implements SnapshotStore, DashboardReader, AnalyticsS
       kind: r.kind,
       uploadsPlaylistId: r.uploads_playlist_id,
       avatarUrl: r.avatar_url,
+      color: r.color,
     }));
   }
 
@@ -508,5 +512,41 @@ export class SupabaseStore implements SnapshotStore, DashboardReader, AnalyticsS
     const patch = error ? { email_error: error } : { emailed_at: iso(at), email_error: null };
     const res = await this.db.from("alerts").update(patch).in("id", ids);
     check(res.error, "Alarm-Versand vermerken");
+  }
+
+  // ───────────── Konkurrenten (Phase 6.3) ─────────────
+
+  async getCompetitors(): Promise<ChannelConfig[]> {
+    const { data, error } = await this.db
+      .from("channels")
+      .select("id, name, code, color")
+      .eq("kind", "competitor")
+      .order("created_at", { ascending: true });
+    check(error, "Konkurrenten lesen");
+    return (data ?? []).map((r) => ({
+      id: r.id,
+      name: r.name,
+      code: r.code ?? r.name.slice(0, 3).toUpperCase(),
+      color: r.color ?? "#8b8a96",
+      kind: "competitor" as const,
+    }));
+  }
+
+  async addCompetitor(row: { id: string; name: string; code: string; color: string; avatarUrl: string | null }) {
+    const { error } = await this.db.from("channels").upsert({
+      id: row.id,
+      name: row.name,
+      code: row.code,
+      color: row.color,
+      kind: "competitor",
+      avatar_url: row.avatarUrl,
+      updated_at: new Date().toISOString(),
+    });
+    check(error, "Konkurrent speichern");
+  }
+
+  async removeCompetitor(id: string) {
+    const { error } = await this.db.from("channels").delete().eq("id", id).eq("kind", "competitor");
+    check(error, "Konkurrent entfernen");
   }
 }

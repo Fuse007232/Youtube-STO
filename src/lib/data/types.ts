@@ -156,6 +156,18 @@ export interface AlertItem {
   emailError: string | null;
 }
 
+/** Eine Zeile der „Fahrerwertung“ (eigene Kanäle + Konkurrenten, Phase 6.3). */
+export interface StandingsEntry {
+  summary: ChannelSummary;
+  isOwn: boolean;
+  /** Shorts, die in den letzten 7 Tagen hochgeladen wurden. */
+  uploads7d: number;
+  /** Ø Aufrufe der Shorts, die in den letzten 30 Tagen hochgeladen wurden (null = keine). */
+  avgViewsPerShort30d: number | null;
+  /** Bester Short nach Aufrufen in 24h. */
+  bestShort24h: Pick<RankedShort, "id" | "title" | "views24h" | "thumbnailUrl"> | null;
+}
+
 export interface DashboardData {
   source: DataSourceKind;
   /** true = Beispieldaten, nicht echt. */
@@ -190,6 +202,11 @@ export interface DashboardData {
   analytics: ChannelAnalytics[] | null;
   /** Letzte Alarme (neueste zuerst). null = Quelle ohne Alarme. */
   alerts: AlertItem[] | null;
+  /**
+   * Fahrerwertung: eigene Kanäle + Konkurrenten. null = Quelle ohne Konkurrenz-Daten.
+   * Ohne eingetragene Konkurrenten stehen hier nur die eigenen Kanäle.
+   */
+  standings: StandingsEntry[] | null;
 }
 
 /** Jede Datenquelle muss diese eine Funktion anbieten. */

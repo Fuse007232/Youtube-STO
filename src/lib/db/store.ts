@@ -1,4 +1,4 @@
-import type { ChannelKind } from "@/config/channels";
+import type { ChannelConfig, ChannelKind } from "@/config/channels";
 import type { AlertCandidate, HourRateRow } from "@/lib/alerts/detect";
 import type { AlertItem, AnalyticsDay, ChannelPoint, RankedShort } from "@/lib/data/types";
 
@@ -15,6 +15,8 @@ export interface ChannelRow {
   kind: ChannelKind;
   uploadsPlaylistId: string | null;
   avatarUrl: string | null;
+  /** Teamfarbe (Konkurrenten: aus der Palette vergeben). */
+  color?: string | null;
 }
 
 export interface ChannelSnapshotRow {
@@ -151,6 +153,15 @@ export interface AlertStore {
   getRecentAlerts(since: number, limit?: number): Promise<AlertItem[]>;
   insertAlerts(rows: AlertCandidate[], at: number): Promise<number[]>;
   markAlertsEmailed(ids: number[], at: number, error: string | null): Promise<void>;
+}
+
+/** Konkurrenten verwalten (Phase 6.3). */
+export interface CompetitorStore {
+  /** Alle Konkurrenten (älteste zuerst). */
+  getCompetitors(): Promise<ChannelConfig[]>;
+  addCompetitor(row: { id: string; name: string; code: string; color: string; avatarUrl: string | null }): Promise<void>;
+  /** Löscht den Konkurrenten samt Schnappschüssen und Videos. */
+  removeCompetitor(id: string): Promise<void>;
 }
 
 /** Lesen (Dashboard). */

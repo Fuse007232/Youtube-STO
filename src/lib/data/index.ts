@@ -2,6 +2,7 @@ import "server-only";
 import { after } from "next/server";
 import { SupabaseStore } from "@/lib/db/SupabaseStore";
 import { getSupabase } from "@/lib/db/supabase";
+import { loadTrackedChannels } from "@/lib/competitors/tracked";
 import { runSnapshotIfDue } from "@/lib/snapshot/run-snapshot";
 import { YouTubeDataClient } from "@/lib/youtube/client";
 import { DatabaseDataSource } from "./database/DatabaseDataSource";
@@ -22,18 +23,24 @@ export function getDataSource(): DataSource {
         // Selbstauslöser: überfälligen Schnappschuss nach der Antwort im Hintergrund holen.
         onStale: youtubeKey
           ? () =>
-              after(() =>
-                runSnapshotIfDue({
-                  store,
-                  client: new YouTubeDataClient(youtubeKey),
-                  trigger: "dashboard",
-                }).catch((e) => console.error("[snapshot] Selbstauslöser fehlgeschlagen:", e)),
-              )
+              after(async () => {
+                try {
+                  await runSnapshotIfDue({
+                    store,
+                    client: new YouTubeDataClient(youtubeKey),
+                    trigger: "dashboard",
+                    channels: await loadTrackedChannels(store),
+                  });
+                } catch (e) {
+                  console.error("[snapshot] Selbstauslöser fehlgeschlagen:", e);
+                }
+              })
           : undefined,
         // Noch leer? Dann solange die Zahlen direkt von YouTube zeigen.
         fallback: youtubeKey ? youtubeSource(youtubeKey) : undefined,
         analytics: store,
         alerts: store,
+        competitors: store,
       });
     }
     case "youtube": {

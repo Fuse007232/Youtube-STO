@@ -1,6 +1,6 @@
 # Projektplan: YouTube-Shorts-Dashboard
 
-> Stand: Phase 6 läuft – Alarm per E-Mail fertig (01.10.2026, Test-Mail angekommen). Jetzt: Konkurrenz-Vergleich (Plan 6.3).
+> Stand: Phase 6 läuft – Alarm per E-Mail ✅, Konkurrenz-Vergleich ✅ gebaut (01.10.2026, wartet auf eingetragene Konkurrenten). Offen: beste Upload-Uhrzeit.
 > Dieses Dokument wird nach jeder Phase aktualisiert (Status-Tabelle unten).
 
 ---
@@ -30,7 +30,7 @@ YouTube hat keine Echtzeit-Schnittstelle. Deshalb holt ein Hintergrund-Job alle 
 | 3 | Supabase-Datenbank, Schnappschüsse, 24h-Duell | ✅ fertig (erste Schnappschüsse am 01.10.2026 ab 18:50) |
 | 4 | Veröffentlichung auf Vercel (inkl. Passwortschutz und Zeitplaner) | ✅ fertig (Login aktiv, Cron seit 01.10. 19:15) |
 | 5 | OAuth-Login + YouTube Analytics API | ✅ fertig (beide Kanäle verbunden) |
-| 6 | Extras (Alarm, beste Upload-Zeit, Konkurrenz) | 🔄 Alarm ✅; Konkurrenz in Arbeit; Upload-Zeit offen |
+| 6 | Extras (Alarm, beste Upload-Zeit, Konkurrenz) | 🔄 Alarm ✅, Konkurrenz ✅; Upload-Zeit offen |
 
 ---
 
@@ -316,7 +316,7 @@ Jedes Extra ist ein eigener kleiner Schritt:
    - Alarme stehen in der Tabelle `alerts` (Migration 0005) und im Widget **„Boxenfunk“**. Einstellungen: Status + „Test-E-Mail senden“.
    - Push aufs Handy ist weiter möglich (später).
 2. **Beste Upload-Uhrzeit:** Auswertung der ersten 24/48h jedes Shorts nach Wochentag und Uhrzeit (Heatmap).
-3. **Konkurrenz-Vergleich** (Plan vom 01.10.2026, siehe 6.3 unten).
+3. **Konkurrenz-Vergleich** ✅ gebaut (01.10.2026, siehe 6.3 unten).
 
 #### 6.3 Konkurrenz-Vergleich: Plan
 
@@ -347,6 +347,8 @@ Jedes Extra ist ein eigener kleiner Schritt:
 7. Beispieldaten: 3 erfundene Konkurrenten für Design-Tests. Tests für Link-Erkennung, Seiten-Limit, Kennzahlen.
 
 **Fertig, wenn:** Du in den Einstellungen deine Konkurrenten einträgst und sie nach wenigen Minuten in der Fahrerwertung neben deinen Kanälen stehen.
+
+**Ergebnis:** Gebaut wie geplant (Migration 0007, `src/lib/youtube/resolve-channel.ts`, `src/lib/competitors/tracked.ts`, `src/config/competitors.ts`, Widget `standings`, Routen `/api/competitors/add|remove`). Echter Zeitplaner-Lauf mit der neuen Kanal-Liste ok. 136 Tests.
 
 **Wo ich dich brauche:** Resend-Konto + `RESEND_API_KEY`/`ALERT_EMAIL_TO` in Vercel (Alarm), Liste der Konkurrenz-Kanäle (Vergleich).
 

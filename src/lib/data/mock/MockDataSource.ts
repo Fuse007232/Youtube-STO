@@ -61,6 +61,23 @@ const PROFILES: Record<string, ChannelProfile> = {
 
 const FALLBACK_PROFILE: ChannelProfile = PROFILES.UCJtW0caGhgqEWxNh2HcsGPg;
 
+/** Erfundene Konkurrenten für Design-Tests (Fahrerwertung). */
+const MOCK_RIVALS: { channel: ChannelConfig; profile: ChannelProfile }[] = [
+  {
+    channel: { id: "UCmockRivalSkibidiLab0001", name: "Skibidi Lab", code: "SKL", color: "#199e70", kind: "competitor" },
+    profile: { style: "brainrot", uploadHoursUtc: [9, 15, 20], videosAtAnchor: 420, subscribersAtAnchor: 452_000, medianViews: 210_000, spread: 1.2, subsPerView: 1 / 1800 },
+  },
+  {
+    channel: { id: "UCmockRivalRobloxRush0002", name: "Roblox Rush", code: "RBR", color: "#c98500", kind: "competitor" },
+    profile: { style: "brainrot", uploadHoursUtc: [12, 19], videosAtAnchor: 250, subscribersAtAnchor: 211_000, medianViews: 160_000, spread: 1.3, subsPerView: 1 / 1500 },
+  },
+  {
+    channel: { id: "UCmockRivalOmaPower00003", name: "Oma Power", code: "OMP", color: "#d55181", kind: "competitor" },
+    profile: { style: "granny", uploadHoursUtc: [17], videosAtAnchor: 60, subscribersAtAnchor: 15_300, medianViews: 45_000, spread: 1.3, subsPerView: 1 / 1200 },
+  },
+];
+for (const r of MOCK_RIVALS) PROFILES[r.channel.id] = r.profile;
+
 /**
  * „Aktivitäts-Uhr“: läuft abends schneller, nachts langsamer.
  * Höhepunkt um 18 Uhr UTC (= 20 Uhr deutscher Sommerzeit).
@@ -195,7 +212,7 @@ function simulateChannel(channel: ChannelConfig, lastSnapshotAt: number): Channe
 }
 
 // Kleiner Zwischenspeicher: pro Schnappschuss-Zeitpunkt nur einmal rechnen.
-let cache: { key: number; sims: ChannelSimulation[] } | null = null;
+let cache: { key: number; sims: ChannelSimulation[]; rivals: ChannelSimulation[] } | null = null;
 
 export class MockDataSource implements DataSource {
   readonly kind = "mock" as const;
@@ -208,6 +225,7 @@ export class MockDataSource implements DataSource {
       cache = {
         key: lastSnapshotAt,
         sims: CHANNELS.map((c) => simulateChannel(c, lastSnapshotAt)),
+        rivals: MOCK_RIVALS.map((r) => simulateChannel(r.channel, lastSnapshotAt)),
       };
     }
 
@@ -222,6 +240,8 @@ export class MockDataSource implements DataSource {
       quotaUsedToday: null,
       analytics: CHANNELS.map((c) => mockAnalytics(c, shorts, lastSnapshotAt)),
       alerts: mockAlerts(shorts, lastSnapshotAt),
+      rivals: cache.rivals.map((s) => s.raw),
+      rivalShorts: cache.rivals.flatMap((s) => s.shorts),
     });
   }
 }

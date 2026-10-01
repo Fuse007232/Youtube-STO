@@ -1,7 +1,8 @@
 import { CHANNELS, type ChannelConfig } from "@/config/channels";
 import { buildDashboard } from "@/lib/data/build-dashboard";
 import type { DashboardData, DataSource } from "@/lib/data/types";
-import type { AlertStore, AnalyticsStore, DashboardReader } from "@/lib/db/store";
+import type { AlertStore, AnalyticsStore, CompetitorStore, DashboardReader } from "@/lib/db/store";
+import { COMPETITOR_CONFIG } from "@/config/competitors";
 import { buildChannelAnalytics } from "@/lib/analytics/build";
 import { ANALYTICS_PERIOD } from "@/lib/analytics/run-analytics";
 import type { ChannelAnalytics, RankedShort } from "@/lib/data/types";
@@ -32,6 +33,8 @@ export interface DatabaseSourceOptions {
   analytics?: Pick<AnalyticsStore, "getConnections" | "getAnalyticsDaily" | "getAnalyticsVideos" | "getBreakdowns">;
   /** Alarme lesen (Phase 6). Fehlt es, gibt es kein Boxenfunk-Widget. */
   alerts?: Pick<AlertStore, "getRecentAlerts">;
+  /** Konkurrenten lesen (Phase 6.3). Fehlt es, gibt es keine Fahrerwertung. */
+  competitors?: Pick<CompetitorStore, "getCompetitors">;
 }
 
 export class DatabaseDataSource implements DataSource {
@@ -70,6 +73,8 @@ export class DatabaseDataSource implements DataSource {
       .filter((r) => quotaDayKey(r.startedAt) === today)
       .reduce((sum, r) => sum + r.units, 0);
 
+    const rivals = await this.loadRivals(now);
+
     const [analytics, alerts] = await Promise.all([
       this.opts.analytics ? this.loadAnalytics(ids, rankings, now) : Promise.resolve(null),
       this.opts.alerts
@@ -95,7 +100,35 @@ export class DatabaseDataSource implements DataSource {
       quotaUsedToday,
       analytics,
       alerts,
+      rivals: rivals?.raw,
+      rivalShorts: rivals ? rankings.filter((s) => rivals.ids.has(s.channelId)) : undefined,
     });
+  }
+
+  /** Konkurrenten mit Verlauf laden. Fehler legen das Dashboard nicht lahm. */
+  private async loadRivals(now: number) {
+    if (!this.opts.competitors) return null;
+    try {
+      const competitors = (await this.opts.competitors.getCompetitors()).slice(0, COMPETITOR_CONFIG.maxCompetitors);
+      const ids = competitors.map((c) => c.id);
+      const [meta, points] = await Promise.all([
+        ids.length ? this.reader.getChannels(ids) : Promise.resolve([]),
+        Promise.all(ids.map((id) => this.reader.getChannelPoints(id, now - HISTORY_MS))),
+      ]);
+      const avatar = new Map(meta.map((m) => [m.id, m.avatarUrl]));
+      return {
+        ids: new Set(ids),
+        raw: competitors.map((channel, i) => ({
+          channel,
+          points: points[i],
+          subscribersRounded: true,
+          avatarUrl: avatar.get(channel.id) ?? null,
+        })),
+      };
+    } catch (e) {
+      console.error("[competitors] Lesen fehlgeschlagen:", e);
+      return null;
+    }
   }
 
   /** Analytics je Kanal laden. Fehler hier legen nicht das ganze Dashboard lahm. */

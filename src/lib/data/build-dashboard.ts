@@ -9,6 +9,7 @@ import {
   windowDelta,
 } from "@/lib/metrics/deltas";
 import { topShortsPerChannel } from "@/lib/metrics/ranking";
+import { channelShortStats } from "@/lib/metrics/standings";
 import type {
   AlertItem,
   ChannelAnalytics,
@@ -17,6 +18,7 @@ import type {
   DashboardData,
   DataSourceKind,
   RankedShort,
+  StandingsEntry,
 } from "./types";
 
 /**
@@ -46,6 +48,12 @@ export interface RawDashboardInput {
   /** YouTube Analytics je Kanal (null/fehlend = Quelle ohne Analytics). */
   analytics?: ChannelAnalytics[] | null;
   alerts?: AlertItem[] | null;
+  /**
+   * Konkurrenten (Rohdaten wie `channels`, Shorts in `rivalShorts`). Fehlt es,
+   * gibt es keine Fahrerwertung.
+   */
+  rivals?: RawChannelData[];
+  rivalShorts?: RankedShort[];
 }
 
 function summarize(raw: RawChannelData): ChannelSummary | null {
@@ -138,5 +146,18 @@ export function buildDashboard(input: RawDashboardInput): DashboardData {
     },
     analytics: input.analytics ?? null,
     alerts: input.alerts ?? null,
+    standings: input.rivals ? buildStandings(channels, input) : null,
   };
+}
+
+/** Fahrerwertung: eigene Kanäle + Konkurrenten mit Zusatz-Kennzahlen. */
+function buildStandings(own: ChannelSummary[], input: RawDashboardInput): StandingsEntry[] {
+  const rivals = (input.rivals ?? []).map(summarize).filter((c): c is ChannelSummary => c !== null);
+  const allShorts = [...input.shorts, ...(input.rivalShorts ?? [])];
+  const entry = (summary: ChannelSummary, isOwn: boolean): StandingsEntry => ({
+    summary,
+    isOwn,
+    ...channelShortStats(allShorts, summary.channel.id, input.now, input.hasHistory),
+  });
+  return [...own.map((c) => entry(c, true)), ...rivals.map((c) => entry(c, false))];
 }

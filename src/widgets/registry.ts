@@ -3,6 +3,7 @@ import analyticsOverview from "./analytics-overview";
 import audienceOrigin from "./audience-origin";
 import channelOverview from "./channel-overview";
 import duelTower from "./duel-tower";
+import standings from "./standings";
 import statusBar from "./status-bar";
 import subsPerShort from "./subs-per-short";
 import teamRadio from "./team-radio";
@@ -19,6 +20,8 @@ export const WIDGETS: WidgetDefinition[] = [
   channelOverview,
   duelTower,
   trendChart,
+  // Phase 6.3: Konkurrenz-Vergleich
+  standings,
   topShorts,
   // Phase 6: „Short geht ab“-Alarme
   teamRadio,

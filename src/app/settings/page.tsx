@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { APP_CONFIG } from "@/config/app";
-import { CHANNELS } from "@/config/channels";
+import { CHANNELS, type ChannelConfig } from "@/config/channels";
+import { COMPETITOR_CONFIG } from "@/config/competitors";
 import { isEmailConfigured, maskEmail } from "@/lib/alerts/email";
 import { isAuthenticated } from "@/lib/auth/server";
 import type { OAuthConnectionRow } from "@/lib/db/store";
@@ -28,16 +29,20 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
   const disconnectedId = str("disconnected");
   const refreshed = str("refreshed");
   const mailed = str("mailed");
+  const added = str("added");
+  const removed = str("removed");
   const emailReady = isEmailConfigured();
   const alertCfg = APP_CONFIG.alerts;
 
   const oauthReady = isOAuthConfigured();
   const dbReady = isSupabaseConfigured();
   let connections: OAuthConnectionRow[] = [];
+  let competitors: ChannelConfig[] = [];
   let loadError: string | null = null;
   if (dbReady) {
     try {
-      connections = await new SupabaseStore(getSupabase()).getConnections();
+      const store = new SupabaseStore(getSupabase());
+      [connections, competitors] = await Promise.all([store.getConnections(), store.getCompetitors()]);
     } catch (e) {
       loadError = e instanceof Error ? e.message : String(e);
     }
@@ -74,6 +79,17 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
       {disconnectedId ? (
         <p role="status" className="mb-4 rounded-xl border border-line bg-surface p-4 text-sm text-ink-2">
           Verbindung zu „{nameOf(disconnectedId)}“ wurde getrennt.
+        </p>
+      ) : null}
+      {added ? (
+        <p role="status" className="mb-4 rounded-xl border border-sector-improved/40 bg-sector-improved/10 p-4 text-sm text-ink">
+          ✓ „{added}“ wird jetzt beobachtet. Die ersten Zahlen erscheinen in ca. einer Minute in der Fahrerwertung,
+          24h-Werte nach 24 Stunden.
+        </p>
+      ) : null}
+      {removed ? (
+        <p role="status" className="mb-4 rounded-xl border border-line bg-surface p-4 text-sm text-ink-2">
+          „{removed}“ wurde samt seinen Daten entfernt.
         </p>
       ) : null}
       {mailed ? (
@@ -168,6 +184,72 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
             <span className="ml-3 text-xs text-muted">Läuft sonst automatisch alle 6 Stunden.</span>
           </form>
         ) : null}
+      </section>
+
+      <section id="konkurrenz" className="mt-6 scroll-mt-6 rounded-2xl border border-line bg-surface/80 p-5">
+        <h2 className="f1-heading text-sm text-ink">Konkurrenz · Fahrerwertung</h2>
+        <p className="mt-1 text-xs text-muted">
+          Füge Shorts-Kanäle hinzu, die du beobachten willst. Es werden nur öffentliche Zahlen genutzt (Abos, Aufrufe,
+          Uploads) – YouTube Analytics gibt es nur für eigene Kanäle. Pro Konkurrent werden die neuesten{" "}
+          {COMPETITOR_CONFIG.maxPlaylistPages * 50} Shorts beobachtet.
+        </p>
+
+        <form method="post" action="/api/competitors/add" className="mt-4 flex flex-wrap gap-2">
+          <input
+            type="text"
+            name="query"
+            required
+            placeholder="Kanal-Link, @Handle oder Short-Link"
+            className="min-w-0 flex-1 rounded-lg border border-line-strong bg-bg/60 px-3 py-2 text-sm text-ink outline-none focus:border-ink-2"
+            disabled={competitors.length >= COMPETITOR_CONFIG.maxCompetitors}
+          />
+          <button
+            type="submit"
+            disabled={competitors.length >= COMPETITOR_CONFIG.maxCompetitors}
+            className="rounded-lg bg-live px-3 py-2 text-xs font-semibold text-white transition hover:brightness-110 disabled:opacity-40"
+          >
+            + Hinzufügen
+          </button>
+        </form>
+        <p className="mt-1 text-[11px] text-muted">
+          Beispiele: <code>@kanalname</code>, <code>https://www.youtube.com/@kanalname</code>,{" "}
+          <code>https://youtube.com/shorts/…</code>
+        </p>
+
+        {competitors.length > 0 ? (
+          <ul className="mt-4 space-y-2">
+            {competitors.map((c) => (
+              <li key={c.id} className="flex items-center gap-3 rounded-xl border border-line bg-bg/40 px-3 py-2">
+                <span className="h-6 w-1.5 rounded-[2px]" style={{ backgroundColor: c.color }} aria-hidden />
+                <span className="font-mono text-xs font-bold text-ink">{c.code}</span>
+                <a
+                  href={`https://www.youtube.com/channel/${c.id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="min-w-0 flex-1 truncate text-sm text-ink-2 hover:text-ink"
+                >
+                  {c.name}
+                </a>
+                <form method="post" action="/api/competitors/remove">
+                  <input type="hidden" name="id" value={c.id} />
+                  <input type="hidden" name="name" value={c.name} />
+                  <button
+                    type="submit"
+                    className="rounded-lg border border-line px-2.5 py-1 text-xs text-muted transition hover:border-line-strong hover:text-ink-2"
+                  >
+                    Entfernen
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        <p className="mt-3 text-[11px] text-muted">
+          {competitors.length} von {COMPETITOR_CONFIG.maxCompetitors} Plätzen belegt · geschätztes YouTube-Kontingent:{" "}
+          ca. {(1000 + competitors.length * COMPETITOR_CONFIG.estimatedUnitsPerDay).toLocaleString("de-DE")} von 10.000
+          Einheiten pro Tag
+        </p>
       </section>
 
       <section className="mt-6 rounded-2xl border border-line bg-surface/80 p-5">

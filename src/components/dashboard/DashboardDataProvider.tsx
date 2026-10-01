@@ -50,7 +50,10 @@ export function DashboardDataProvider({
     inFlight.current = true;
     try {
       const res = await fetch("/api/dashboard", { cache: "no-store" });
-      if (!res.ok) throw new Error(`Server antwortet mit ${res.status}`);
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error ?? `Server antwortet mit ${res.status}`);
+      }
       const next = (await res.json()) as DashboardData;
       setData(next);
       setFetchedAt(Date.now());

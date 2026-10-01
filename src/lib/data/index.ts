@@ -1,15 +1,23 @@
 import "server-only";
 import { MockDataSource } from "./mock/MockDataSource";
-import type { DataSource, DataSourceKind } from "./types";
+import { resolveDataSourceKind } from "./resolve-kind";
+import type { DataSource } from "./types";
+import { YouTubeDataSource } from "./youtube/YouTubeDataSource";
 
-/**
- * Wählt die Datenquelle anhand der Umgebungsvariable DATA_SOURCE.
- * Standard (und in Phase 1 einzige Möglichkeit): "mock" = Beispieldaten.
- * Phase 2 ergänzt "youtube", Phase 3 "database".
- */
 export function getDataSource(): DataSource {
-  const kind = (process.env.DATA_SOURCE ?? "mock") as DataSourceKind;
+  const kind = resolveDataSourceKind();
   switch (kind) {
+    case "youtube": {
+      const key = process.env.YOUTUBE_API_KEY;
+      if (!key) {
+        throw new Error(
+          "DATA_SOURCE ist auf „youtube“ gestellt, aber YOUTUBE_API_KEY fehlt. Bitte in Vercel unter Settings → Environment Variables eintragen.",
+        );
+      }
+      return new YouTubeDataSource(key);
+    }
+    case "database":
+      throw new Error("Die Datenbank-Quelle kommt erst in Phase 3.");
     case "mock":
     default:
       return new MockDataSource();

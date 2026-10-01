@@ -6,6 +6,7 @@ import { AnimatedNumber, type NumberFormat } from "@/components/ui/AnimatedNumbe
 import { LiveDot } from "@/components/ui/LiveDot";
 import { WidgetCard } from "@/components/ui/WidgetCard";
 import type { ChannelConfig } from "@/config/channels";
+import type { ChannelSummary } from "@/lib/data/types";
 import { formatSigned } from "@/lib/format";
 import { sectorStatus, type SectorStatus } from "@/lib/metrics/sector";
 
@@ -51,25 +52,75 @@ export function DuelTowerWidget() {
     status: "neutral",
   }));
 
-  const total = views.reduce((sum, e) => sum + Math.max(0, e.value), 0);
-  const anyRounded = data.channels.some((c) => c.subscribersRounded);
+  // Ohne Verlauf (Phase 2): Duell über die Gesamtwerte statt über 24 Stunden.
+  const totalsMode = !data.hasHistory;
+  const sections = totalsMode
+    ? [
+        {
+          title: "Aufrufe gesamt",
+          entries: rows.map(({ summary: s, live }) => neutral(s, live.views)),
+          format: "compact" as const,
+          gapCompact: true,
+        },
+        {
+          title: "Abonnenten",
+          note: anyRoundedNote(data.channels),
+          entries: rows.map(({ summary: s }) => neutral(s, s.current.subscribers)),
+          format: "number" as const,
+          gapCompact: false,
+        },
+        {
+          title: "Shorts",
+          entries: rows.map(({ summary: s }) => neutral(s, s.current.videoCount)),
+          format: "number" as const,
+          gapCompact: false,
+        },
+        {
+          title: "Ø Aufrufe pro Short",
+          entries: rows.map(({ summary: s }) =>
+            neutral(s, s.current.videoCount ? s.current.views / s.current.videoCount : 0),
+          ),
+          format: "number" as const,
+          gapCompact: true,
+        },
+      ]
+    : [
+        { title: "Aufrufe", entries: views, format: "number" as const, gapCompact: true },
+        {
+          title: "Abos",
+          note: anyRoundedNote(data.channels),
+          entries: subs,
+          format: "signed" as const,
+          gapCompact: false,
+        },
+        { title: "Neue Shorts", entries: uploads, format: "number" as const, gapCompact: false },
+        { title: "Tempo · Aufrufe/Std.", entries: pace, format: "number" as const, gapCompact: true },
+      ];
+
+  // Tauziehen-Balken: Anteil an den Aufrufen (24h bzw. gesamt).
+  const shareEntries = sections[0].entries;
+  const total = shareEntries.reduce((sum, e) => sum + Math.max(0, e.value), 0);
 
   return (
     <WidgetCard
-      title="Duell · Letzte 24h"
-      subtitle="Gleitend: die letzten 24 Stunden bis jetzt"
+      title={totalsMode ? "Duell · Gesamtstand" : "Duell · Letzte 24h"}
+      subtitle={
+        totalsMode
+          ? "Echte Gesamtzahlen · 24h-Duell ab Phase 3"
+          : "Gleitend: die letzten 24 Stunden bis jetzt"
+      }
       actions={
         <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-2">
           <LiveDot /> Live
         </span>
       }
     >
-      {/* Anteil an den Aufrufen der letzten 24h – wie ein Tauziehen */}
+      {/* Anteil an den Aufrufen – wie ein Tauziehen */}
       <div className="mb-4">
         <div className="flex h-2.5 overflow-hidden rounded-full bg-surface-3" role="img"
-          aria-label={views.map((e) => `${e.channel.code} ${total ? Math.round((e.value / total) * 100) : 0} Prozent`).join(", ")}
+          aria-label={shareEntries.map((e) => `${e.channel.code} ${total ? Math.round((e.value / total) * 100) : 0} Prozent`).join(", ")}
         >
-          {views.map((e, i) => (
+          {shareEntries.map((e, i) => (
             <motion.div
               key={e.channel.id}
               className={i > 0 ? "border-l-2 border-surface" : ""}
@@ -81,7 +132,7 @@ export function DuelTowerWidget() {
           ))}
         </div>
         <div className="mt-1.5 flex justify-between font-mono text-[11px] text-ink-2">
-          {views.map((e) => (
+          {shareEntries.map((e) => (
             <span key={e.channel.id} className="num">
               {e.channel.code} {total ? Math.round((Math.max(0, e.value) / total) * 100) : 0}%
             </span>
@@ -90,17 +141,12 @@ export function DuelTowerWidget() {
       </div>
 
       <div className="space-y-4">
-        <TowerSection title="Aufrufe" entries={views} format="number" gapCompact />
-        <TowerSection
-          title="Abos"
-          note={anyRounded ? "öffentlich gerundet" : undefined}
-          entries={subs}
-          format="signed"
-        />
-        <TowerSection title="Neue Shorts" entries={uploads} format="number" />
-        <TowerSection title="Tempo · Aufrufe/Std." entries={pace} format="number" gapCompact />
+        {sections.map((sec) => (
+          <TowerSection key={sec.title} {...sec} />
+        ))}
       </div>
 
+      {totalsMode ? null : (
       <ul className="mt-5 flex flex-wrap gap-x-4 gap-y-1 border-t border-line pt-3 text-[11px] text-muted">
         {(["best", "improved", "worse"] as const).map((s) => (
           <li key={s} className="inline-flex items-center gap-1.5">
@@ -109,8 +155,17 @@ export function DuelTowerWidget() {
           </li>
         ))}
       </ul>
+      )}
     </WidgetCard>
   );
+}
+
+function neutral(s: ChannelSummary, value: number): Entry {
+  return { channel: s.channel, value, status: "neutral" };
+}
+
+function anyRoundedNote(channels: ChannelSummary[]): string | undefined {
+  return channels.some((c) => c.subscribersRounded) ? "öffentlich gerundet" : undefined;
 }
 
 function TowerSection({

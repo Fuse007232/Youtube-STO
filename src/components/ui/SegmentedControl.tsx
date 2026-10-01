@@ -10,7 +10,7 @@ export function SegmentedControl<T extends string>({
   onChange,
   label,
 }: {
-  options: { value: T; label: string }[];
+  options: { value: T; label: string; disabled?: boolean; hint?: string }[];
   value: T;
   onChange: (value: T) => void;
   label: string;
@@ -30,9 +30,11 @@ export function SegmentedControl<T extends string>({
             type="button"
             role="radio"
             aria-checked={active}
+            disabled={o.disabled}
+            title={o.hint}
             onClick={() => onChange(o.value)}
-            className={`relative rounded-md px-2.5 py-1 font-medium transition-colors ${
-              active ? "text-ink" : "text-muted hover:text-ink-2"
+            className={`relative rounded-md px-2.5 py-1 font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+              active ? "text-ink" : "text-muted enabled:hover:text-ink-2"
             }`}
           >
             {active ? (

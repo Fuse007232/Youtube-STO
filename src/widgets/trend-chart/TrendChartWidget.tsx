@@ -55,6 +55,8 @@ export function TrendChartWidget() {
   );
   const lastIndex = rows.length - 1;
 
+  if (!data.hasHistory) return <NoHistoryYet />;
+
   return (
     <WidgetCard
       title="Rennverlauf"
@@ -186,5 +188,24 @@ function ChartTooltip({
         );
       })}
     </div>
+  );
+}
+
+/** Platzhalter, solange es noch keine gespeicherten Schnappschüsse gibt (Phase 2). */
+function NoHistoryYet() {
+  return (
+    <WidgetCard title="Rennverlauf" subtitle="Gewonnene Aufrufe und Abos über die Zeit">
+      <div className="flex h-full min-h-72 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-line-strong px-6 text-center">
+        <svg viewBox="0 0 120 40" className="h-12 w-36 text-muted" aria-hidden>
+          <path d="M2 36 C30 34, 40 20, 60 18 S 95 6, 118 4" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="4 5" />
+        </svg>
+        <p className="text-sm font-medium text-ink">Die Kurven starten mit der Datenbank</p>
+        <p className="max-w-md text-xs text-muted">
+          YouTube liefert immer nur den aktuellen Stand. Für den Rennverlauf speichern wir ab Phase 3
+          alle 15 Minuten einen Schnappschuss – nach wenigen Stunden erscheinen hier die ersten Kurven,
+          nach 24 Stunden das volle Duell.
+        </p>
+      </div>
+    </WidgetCard>
   );
 }

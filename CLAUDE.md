@@ -10,7 +10,8 @@ Privates Dashboard für die 2 YouTube-Shorts-Kanäle des Nutzers: beide Kanäle 
 
 - Kanäle: **Bra1nrotvault** (`UCJtW0caGhgqEWxNh2HcsGPg`, Kürzel BRV, ~102K Abos, ~350 Shorts) und **Granny Aura** (`UCSxDp-sHQ49VwIz0Ix9fusA`, GRA, ~28K Abos, ~100 Shorts). Zwei **verschiedene** Google-Konten (keine Brand-Konten). Nur Shorts, keine langen Videos.
 - Vollständiger Plan, Phasen, Zugangsdaten, Klick-Anleitungen und Entscheidungen: **`docs/PLAN.md`**
-- **Aktueller Stand:** Phase 1 (Dashboard mit Beispieldaten) gebaut, wartet auf Design-OK. Nächste Phase: 2 (YouTube Data API).
+- **Aktueller Stand:** Phase 1 fertig (Design abgenommen). Phase 2 (echte Zahlen über YouTube Data API) gebaut; Echt-Test wartet darauf, dass der Nutzer `YOUTUBE_API_KEY` in Vercel einträgt. Nächste Phase: 3 (Supabase + Schnappschüsse).
+- **Vercel:** Projekt `youtube-sto` (Team-Scope `felixpensel3-3483s-projects`). Der Branch `claude/youtube-shorts-dashboard-c6jkd9` ist dort die **Production**-Branch. Das Vercel-MCP kann Deployments lesen (`list_deployments` mit `projectId` ohne `teamId`); team-gebundene Aufrufe (z. B. Umgebungsvariablen) sind nicht autorisiert.
 
 ## Zusammenarbeit (wichtig)
 
@@ -40,7 +41,8 @@ npm test           # Vitest (src/**/*.test.ts)
 ```
 
 Vor jedem Commit: `npm run lint && npm run typecheck && npm test && npm run build`.
-Screenshots zum Prüfen: `npx next start -p 3123` und Playwright (global installiert, Chromium unter `/opt/pw-browsers`).
+Screenshots zum Prüfen: `npx next start -p 3123` und Playwright (global installiert, Chromium unter `/opt/pw-browsers`; `ignoreHTTPSErrors: true`, sonst blockiert der Cloud-Proxy externe Bilder).
+YouTube-Ansicht ohne echten Schlüssel testen: einen nachgebauten API-Server starten und `YOUTUBE_API_KEY=test-key YOUTUBE_API_BASE_URL=http://localhost:<port>/youtube/v3 npx next start` (die öffentlichen RSS-Feeds `https://www.youtube.com/feeds/videos.xml?channel_id=<ID>` liefern echte Titel/Aufrufe der neuesten 15 Videos ohne Kontingent). `YOUTUBE_API_BASE_URL` nie in Vercel setzen.
 Achtung: Prozesse nicht mit `pkill -f next…` beenden (trifft die eigene Shell). Stattdessen PID per `ps aux | grep "next-serv[e]r"` holen und `kill`.
 
 ## Technik
@@ -55,8 +57,11 @@ Achtung: Prozesse nicht mit `pkill -f next…` beenden (trifft die eigene Shell)
 
 - `src/lib/data/types.ts`: **die** gemeinsame Datenform (`DashboardData`, `ChannelSummary`, `RankedShort`, `DataSource`).
 - `src/lib/data/build-dashboard.ts`: Rohdaten → `DashboardData` (24h-Gewinne, Vortag, Bestwert, Tempo, Ranglisten). Gilt für alle Quellen.
-- `src/lib/data/index.ts`: `getDataSource()` wählt die Quelle per `DATA_SOURCE` (Standard `mock`).
-- `src/lib/data/mock/`: vorhersagbare Beispieldaten (fester Zufall, Upload-Plan, Tagesrhythmus, YouTube-Rundung der Abos).
+- `src/lib/data/index.ts`: `getDataSource()`; Auswahl in `resolve-kind.ts`: `DATA_SOURCE` falls gesetzt, sonst automatisch `youtube` wenn `YOUTUBE_API_KEY` da ist, sonst `mock`.
+- `src/lib/data/youtube/YouTubeDataSource.ts` (Phase 2): holt Kanäle + alle Uploads + Video-Statistiken, 10 Min. Zwischenspeicher pro Instanz, `hasHistory: false` (nur aktueller Stand).
+- `src/lib/youtube/`: `client.ts` (channels/playlistItems/videos, 50er-Pakete, zählt Einheiten), `parse.ts`, `errors.ts` (deutsche Fehlertexte), `quota.ts` (Tageszähler, Reset Mitternacht Pazifik). Test-Doppel: `__fixtures__/fake-youtube.ts`.
+- **`hasHistory`** in `DashboardData`: false = keine Schnappschüsse → Duell-Tower zeigt Gesamtstand, Rennverlauf zeigt Platzhalter, Top-Shorts nur „Gesamt“, Kanal-Karten ohne 24h-Werte. Neue Widgets müssen diesen Fall ebenfalls behandeln.
+- `src/lib/data/mock/`: vorhersagbare Beispieldaten (fester Zufall, Upload-Plan, Tagesrhythmus, YouTube-Rundung der Abos). Bleibt dauerhaft für Design-Tests (`DATA_SOURCE=mock`).
 - **Hochrechnung:** `useLiveChannel()` / `useLiveChannels()` im Provider: Aufrufe = letzter Schnappschuss + Tempo × vergangene Zeit (gedeckelt auf 1,5 × Intervall). Abos nie hochgerechnet.
 - **Uhr:** `useNow()` tickt jede Sekunde (eigener Kontext, damit nur Nutzer neu zeichnen).
 - **F1-Sektorfarben:** `src/lib/metrics/sector.ts`: lila = Bestwert im gespeicherten Verlauf, grün = besser als Vortag, gelb = schwächer, grau = kein Vergleich.
@@ -71,14 +76,16 @@ src/components/dashboard/   Dashboard.tsx (Kopf + Raster), DashboardDataProvider
 src/components/ui/          AnimatedNumber, WidgetCard, SegmentedControl, ChannelCode, LiveDot
 src/config/app.ts           Zeitzone, Intervalle, Kontingent, Listenlänge
 src/config/channels.ts      Kanäle (ID, Name, Kürzel, Teamfarbe, kind)
-src/lib/data/               Datenform, Datenquellen, buildDashboard
+src/lib/data/               Datenform, Datenquellen (mock/, youtube/), buildDashboard, resolve-kind
+src/lib/youtube/            YouTube-Data-API-Client, Parser, Fehlertexte, Kontingent-Zähler
+src/components/dashboard/SetupError.tsx  Fehlerseite, wenn Daten nicht ladbar sind
 src/lib/metrics/            Reine Rechenfunktionen + Tests
 src/lib/format.ts           Deutsche Zahlen-/Zeitformate (Berliner Zeit)
 src/widgets/                registry.ts, types.ts, je Widget ein Ordner
 docs/PLAN.md                Projektplan
 ```
 
-Geplant: `src/lib/youtube/` (Phase 2), `src/lib/db/` + `supabase/migrations/` (Phase 3), `src/app/api/cron/snapshot/` (Phase 3), `src/app/api/auth/youtube/` (Phase 5), `src/lib/alerts/` (Phase 6).
+Geplant: `src/lib/db/` + `supabase/migrations/` (Phase 3), `src/app/api/cron/snapshot/` (Phase 3), `src/app/api/auth/youtube/` (Phase 5), `src/lib/alerts/` (Phase 6).
 
 ## Widgets
 

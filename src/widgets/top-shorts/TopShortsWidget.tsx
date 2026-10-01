@@ -23,7 +23,10 @@ const PERIOD_LABEL: Record<RankingPeriod, string> = {
 export function TopShortsWidget() {
   const { data } = useDashboardData();
   const now = useNow();
-  const [period, setPeriod] = useState<RankingPeriod>("24h");
+  const [chosenPeriod, setPeriod] = useState<RankingPeriod>("24h");
+  // Ohne Verlauf gibt es nur die Gesamt-Rangliste.
+  const period: RankingPeriod = data.hasHistory ? chosenPeriod : "all";
+  const historyHint = data.hasHistory ? undefined : "Kommt mit der Datenbank (Phase 3)";
   const [channelFilter, setChannelFilter] = useState<string>("all");
 
   const channels = data.channels.map((c) => c.channel);
@@ -54,8 +57,8 @@ export function TopShortsWidget() {
             value={period}
             onChange={setPeriod}
             options={[
-              { value: "24h", label: "24h" },
-              { value: "7d", label: "7 Tage" },
+              { value: "24h", label: "24h", disabled: !data.hasHistory, hint: historyHint },
+              { value: "7d", label: "7 Tage", disabled: !data.hasHistory, hint: historyHint },
               { value: "all", label: "Gesamt" },
             ]}
           />
@@ -75,6 +78,7 @@ export function TopShortsWidget() {
               channel={channelById.get(s.channelId)}
               now={now}
               linkable={!data.isDemo}
+              hasHistory={data.hasHistory}
             />
           ))}
         </AnimatePresence>
@@ -95,6 +99,7 @@ function ShortRow({
   channel,
   now,
   linkable,
+  hasHistory,
 }: {
   short: RankedShort;
   position: number;
@@ -104,12 +109,17 @@ function ShortRow({
   channel: ChannelConfig | undefined;
   now: number;
   linkable: boolean;
+  hasHistory: boolean;
 }) {
   const color = channel?.color ?? "var(--muted)";
   const secondary =
-    period === "all"
-      ? `+${formatCompact(short.views24h)} in 24h`
-      : `${formatCompact(short.views)} gesamt`;
+    period !== "all"
+      ? `${formatCompact(short.views)} gesamt`
+      : hasHistory
+        ? `+${formatCompact(short.views24h)} in 24h`
+        : short.likes > 0
+          ? `${formatCompact(short.likes)} Likes`
+          : "";
 
   const content = (
     <>
@@ -186,6 +196,7 @@ function Thumbnail({ short, color }: { short: RankedShort; color: string }) {
         alt=""
         width={27}
         height={48}
+        unoptimized
         className="h-12 w-[27px] shrink-0 rounded object-cover"
       />
     );

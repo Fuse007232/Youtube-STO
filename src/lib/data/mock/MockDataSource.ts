@@ -188,7 +188,7 @@ function simulateChannel(channel: ChannelConfig, lastSnapshotAt: number): Channe
   });
 
   return {
-    raw: { channel, points, subscribersRounded: true },
+    raw: { channel, points, subscribersRounded: true, avatarUrl: null },
     shorts: ranked,
   };
 }
@@ -213,6 +213,7 @@ export class MockDataSource implements DataSource {
     return buildDashboard({
       source: this.kind,
       isDemo: true,
+      hasHistory: true,
       now,
       channels: cache.sims.map((s) => s.raw),
       shorts: cache.sims.flatMap((s) => s.shorts),

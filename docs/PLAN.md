@@ -1,6 +1,6 @@
 # Projektplan: YouTube-Shorts-Dashboard
 
-> Stand: Phase 1 fertig (Dashboard mit Beispieldaten). Wartet auf dein Design-Feedback.
+> Stand: Phase 2 gebaut (echte Zahlen über die YouTube Data API). Wartet auf den API-Schlüssel in Vercel für den Echt-Test.
 > Dieses Dokument wird nach jeder Phase aktualisiert (Status-Tabelle unten).
 
 ---
@@ -25,8 +25,8 @@ YouTube hat keine Echtzeit-Schnittstelle. Deshalb holt ein Hintergrund-Job alle 
 | Phase | Inhalt | Status |
 |---|---|---|
 | 0 | Planung (dieses Dokument) | ✅ fertig |
-| 1 | Grundgerüst + Dashboard mit Beispieldaten | ✅ gebaut, wartet auf dein Design-OK |
-| 2 | Echte Zahlen über die YouTube Data API | ⏳ offen |
+| 1 | Grundgerüst + Dashboard mit Beispieldaten | ✅ fertig (Design abgenommen) |
+| 2 | Echte Zahlen über die YouTube Data API | ✅ gebaut, Echt-Test mit deinem Schlüssel offen |
 | 3 | Supabase-Datenbank, Schnappschüsse, 24h-Duell | ⏳ offen |
 | 4 | Veröffentlichung auf Vercel (inkl. Passwortschutz und Zeitplaner) | ⏳ offen |
 | 5 | OAuth-Login + YouTube Analytics API | ⏳ offen |
@@ -71,7 +71,7 @@ Die Widgets wissen nicht, woher die Daten kommen. Dazwischen sitzt eine „Daten
 - **Phase 2:** `YouTubeDataSource`: direkt von der YouTube Data API (mit Zwischenspeicher).
 - **Ab Phase 3:** `DatabaseDataSource`: aus den Supabase-Schnappschüssen.
 
-Umschalten per Umgebungsvariable `DATA_SOURCE=mock|youtube|database`. Die Beispieldaten bleiben erhalten. Damit kann man Design-Änderungen jederzeit ohne Internet testen.
+Automatische Wahl (mit `YOUTUBE_API_KEY` → `youtube`, sonst `mock`), erzwingbar per `DATA_SOURCE=mock|youtube|database`. Die Beispieldaten bleiben erhalten. Damit kann man Design-Änderungen jederzeit ohne Internet testen.
 
 ### 3.3 Geplante Ordnerstruktur
 
@@ -186,7 +186,7 @@ Geschätzter Bedarf: deutlich unter 100 MB pro Jahr.
 
 **Fertig, wenn:**
 - `npm run build`, `npm run lint` und `npm test` laufen fehlerfrei durch. ✅
-- Du hast das Dashboard gesehen (Vorschau-Link oder Screenshots) und gibst dein OK zum Design. ⏳
+- Du hast das Dashboard gesehen (Vorschau-Link oder Screenshots) und gibst dein OK zum Design. ✅
 
 **Ergebnis Phase 1:** Widgets `status-bar`, `channel-overview`, `duel-tower`, `trend-chart`, `top-shorts`; Beispieldaten realistisch für BRV (~102K Abos, ~350 Shorts) und GRA (~28K Abos, ~100 Shorts) inkl. YouTube-Rundung der Abos; 28 Tests.
 
@@ -198,10 +198,10 @@ Geschätzter Bedarf: deutlich unter 100 MB pro Jahr.
 
 **Arbeitsschritte (mache ich):**
 1. YouTube-Baustein in `src/lib/youtube/`: `channels.list`, `playlistItems.list`, `videos.list` (50er-Pakete), mit Kontingent-Zähler.
-2. Shorts-Erkennung (je nach deiner Antwort auf die Frage dazu).
+2. Shorts-Erkennung: entfällt (beide Kanäle laden nur Shorts hoch).
 3. `YouTubeDataSource` mit 10-Minuten-Zwischenspeicher (damit Neuladen kein Kontingent frisst).
-4. 24h-Werte bleiben in dieser Phase noch Beispieldaten und sind als „Demo“ markiert, denn dafür braucht es die Datenbank aus Phase 3.
-5. Tests mit gespeicherten Beispiel-Antworten von YouTube (funktionieren auch ohne Schlüssel).
+4. 24h-Werte gibt es ohne Datenbank nicht. **Entscheidung beim Bauen:** statt Beispielzahlen mit echten zu mischen, zeigen die Widgets ehrlich nur echte Werte: Duell-Tower als **Gesamtstand-Duell**, Rennverlauf mit Hinweis „startet mit der Datenbank“, Top-Shorts nur „Gesamt“. Mit Phase 3 schaltet alles automatisch auf die 24h-Ansicht um (`hasHistory`).
+5. Tests mit einer nachgebauten YouTube-API (funktionieren auch ohne Schlüssel).
 
 **Wo ich dich brauche:**
 - Google-Cloud-Projekt + API-Schlüssel anlegen → **Anleitung A**
@@ -211,6 +211,13 @@ Geschätzter Bedarf: deutlich unter 100 MB pro Jahr.
 **Hinweis zur Cloud-Session:** Ich habe geprüft: Diese Cloud-Umgebung erreicht die Google-APIs. Neue Umgebungsvariablen werden aber erst in einer **neuen** Session sichtbar. Ich baue Phase 2 deshalb so, dass ich sie mit Beispiel-Antworten testen kann. Den Echt-Test machen wir über die Vercel-Vorschau oder in der nächsten Session.
 
 **Fertig, wenn:** Das Dashboard zeigt die echten Abos, Aufrufe und Video-Anzahlen beider Kanäle und die echten Top-Shorts (gesamt). Der Kontingent-Verbrauch pro Abruf wird angezeigt.
+
+**Ergebnis Phase 2:**
+- Datenquelle wird automatisch gewählt: `YOUTUBE_API_KEY` vorhanden → echte Zahlen, sonst Beispieldaten. `DATA_SOURCE=mock` erzwingt Beispieldaten.
+- Ein Abruf kostet ca. 19 Einheiten (1 Kanäle + 8 Upload-Seiten + 10 Video-Pakete) und wird 10 Min. zwischengespeichert → höchstens ca. 2.700 Einheiten/Tag (pro laufender Server-Instanz). Ab Phase 3 holt nur noch der Zeitplaner Daten.
+- Kanalbilder und Vorschaubilder kommen direkt von YouTube; Klick auf einen Short öffnet ihn auf YouTube.
+- Verständliche Fehlerseite (z. B. „Schlüssel ungültig“, „Kontingent aufgebraucht“, „API nicht aktiviert“).
+- 52 Tests.
 
 ---
 
@@ -292,7 +299,7 @@ Jedes Extra ist ein eigener kleiner Schritt:
 
 | Variable | Was ist das? | Woher? | Ab Phase | Wo eintragen? |
 |---|---|---|---|---|
-| `DATA_SOURCE` | `mock`, `youtube` oder `database` | Kein Geheimnis, legst du fest | 1 | Vercel, Claude-Umgebung |
+| `DATA_SOURCE` | Optional: `mock`, `youtube` oder `database`. Leer = automatisch (mit `YOUTUBE_API_KEY` echte Zahlen, sonst Beispieldaten) | Kein Geheimnis | 1 | nur bei Bedarf |
 | `YOUTUBE_API_KEY` | Schlüssel für öffentliche YouTube-Zahlen | Anleitung A | 2 | Vercel, Claude-Umgebung |
 | `SUPABASE_URL` | Adresse deiner Datenbank | Anleitung E | 3 | Vercel, Claude-Umgebung |
 | `SUPABASE_SECRET_KEY` | Geheimer Server-Schlüssel der Datenbank (`sb_secret_…`) | Anleitung E | 3 | Vercel, Claude-Umgebung |

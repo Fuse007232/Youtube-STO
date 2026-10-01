@@ -32,6 +32,8 @@ export interface ChannelDeltas {
 
 export interface ChannelSummary {
   channel: ChannelConfig;
+  /** Kanalbild von YouTube (null bei Beispieldaten). */
+  avatarUrl: string | null;
   /** Stand beim letzten Schnappschuss. */
   current: ChannelTotals;
   /** true = YouTube zeigt die Abozahl öffentlich nur gerundet. */
@@ -68,10 +70,16 @@ export interface DashboardData {
   source: DataSourceKind;
   /** true = Beispieldaten, nicht echt. */
   isDemo: boolean;
+  /**
+   * true = es gibt einen Verlauf aus Schnappschüssen (24h-Werte, Kurven, Ranglisten 24h/7d).
+   * false = nur der aktuelle Stand (YouTube direkt, bis die Datenbank aus Phase 3 läuft).
+   */
+  hasHistory: boolean;
   /** Zeitpunkt, an dem der Server diese Antwort erzeugt hat (ms). */
   generatedAt: number;
-  /** Zeitpunkt des letzten Schnappschusses (ms). */
+  /** Zeitpunkt des letzten Schnappschusses bzw. YouTube-Abrufs (ms). */
   lastSnapshotAt: number;
+  /** Abstand bis zum nächsten Schnappschuss bzw. Abruf (Minuten). */
   snapshotIntervalMin: number;
   channels: ChannelSummary[];
   /**

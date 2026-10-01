@@ -32,7 +32,7 @@ export function StatusBarWidget() {
       </span>
 
       <span>
-        Letzter Schnappschuss{" "}
+        {data.source === "youtube" ? "Letzter Abruf" : "Letzter Schnappschuss"}{" "}
         <b className="num font-semibold text-ink">{formatClock(data.lastSnapshotAt)}</b>{" "}
         <span className="text-muted">({formatAgo(data.lastSnapshotAt, now)})</span>
       </span>
@@ -47,16 +47,25 @@ export function StatusBarWidget() {
         </span>
       </span>
 
-      <span title="Zwischen zwei Schnappschüssen zählen die Aufrufe im zuletzt gemessenen Tempo weiter.">
-        <span className="text-ink">≈</span> Aufrufe laufen als Hochrechnung weiter
-      </span>
+      {data.hasHistory ? (
+        <span title="Zwischen zwei Schnappschüssen zählen die Aufrufe im zuletzt gemessenen Tempo weiter.">
+          <span className="text-ink">≈</span> Aufrufe laufen als Hochrechnung weiter
+        </span>
+      ) : (
+        <span title="Für 24h-Werte, Kurven und Hochrechnung braucht es gespeicherte Schnappschüsse (Datenbank, Phase 3).">
+          24h-Werte &amp; Hochrechnung folgen mit der Datenbank (Phase 3)
+        </span>
+      )}
 
       <span className="sm:ml-auto">
         API-Kontingent heute:{" "}
-        <b className="num font-semibold text-ink">
+        <b
+          className="num font-semibold text-ink"
+          title="Verbrauchte YouTube-Einheiten seit 9 Uhr (Reset um Mitternacht Kalifornien). Bis Phase 3 ein Näherungswert pro Server-Instanz."
+        >
           {data.quota.usedToday === null
             ? "–"
-            : `${formatNumber(data.quota.usedToday)} / ${formatNumber(data.quota.dailyLimit)}`}
+            : `≈ ${formatNumber(data.quota.usedToday)} / ${formatNumber(data.quota.dailyLimit)}`}
         </b>
       </span>
 

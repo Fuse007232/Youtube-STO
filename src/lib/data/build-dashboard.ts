@@ -27,11 +27,16 @@ export interface RawChannelData {
   /** Schnappschüsse, aufsteigend sortiert. Ideal: mindestens 8 Tage. */
   points: ChannelPoint[];
   subscribersRounded: boolean;
+  avatarUrl: string | null;
 }
 
 export interface RawDashboardInput {
   source: DataSourceKind;
   isDemo: boolean;
+  /** false = nur aktueller Stand, keine Schnappschüsse (24h-Werte nicht verfügbar). */
+  hasHistory: boolean;
+  /** Standard: Schnappschuss-Abstand aus APP_CONFIG. */
+  refreshIntervalMin?: number;
   now: number;
   channels: RawChannelData[];
   shorts: RankedShort[];
@@ -55,6 +60,7 @@ function summarize(raw: RawChannelData): ChannelSummary | null {
 
   return {
     channel: raw.channel,
+    avatarUrl: raw.avatarUrl,
     current: {
       subscribers: last.subscribers,
       views: last.views,
@@ -89,16 +95,20 @@ export function buildDashboard(input: RawDashboardInput): DashboardData {
   );
 
   const limit = APP_CONFIG.topShortsLimit;
+  // Ohne Verlauf sind 24h-/7-Tage-Ranglisten nicht berechenbar → leer lassen statt raten.
+  const withHistory = (period: "24h" | "7d") =>
+    input.hasHistory ? topShortsPerChannel(input.shorts, period, limit) : [];
   return {
     source: input.source,
     isDemo: input.isDemo,
+    hasHistory: input.hasHistory,
     generatedAt: input.now,
     lastSnapshotAt,
-    snapshotIntervalMin: APP_CONFIG.snapshotIntervalMin,
+    snapshotIntervalMin: input.refreshIntervalMin ?? APP_CONFIG.snapshotIntervalMin,
     channels,
     topShorts: {
-      "24h": topShortsPerChannel(input.shorts, "24h", limit),
-      "7d": topShortsPerChannel(input.shorts, "7d", limit),
+      "24h": withHistory("24h"),
+      "7d": withHistory("7d"),
       all: topShortsPerChannel(input.shorts, "all", limit),
     },
     quota: {

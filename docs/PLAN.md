@@ -32,6 +32,7 @@ YouTube hat keine Echtzeit-Schnittstelle. Deshalb holt ein Hintergrund-Job alle 
 | 5 | OAuth-Login + YouTube Analytics API | ✅ fertig (beide Kanäle verbunden) |
 | 6 | Extras (Alarm, beste Upload-Zeit, Konkurrenz) | ✅ fertig |
 | 7 | Feinschliff: Seiten Rennen/Analyse, Short-Länge, Langzeit-Anteil, Upload-Kalender, Short-Steckbrief, Kommentar-Puls, Konkurrenz-Radar, Rennbericht, Wächter | ✅ fertig (01.10.2026) |
+| 8 | Schönheit: 4 Bereiche + Handy-Leiste, Seitenübergänge, globaler Zeitraum, Bilder + Vorschau, Hover-Effekte, Skelette, App-Symbol | 🔄 läuft |
 
 ---
 
@@ -430,6 +431,30 @@ Erste echte Auswertung: **BRV – „Teste mehr um 14–16 Uhr“, +49 % gegenü
 - Migrationen 0010 (`comments`, `video_comment_gains`, Lauf-Art `comments`) und 0011 (`notifications`, `removed_own_videos`).
 - Erster Rennbericht am 02.10. ab 8 Uhr (01.10. als „erledigt“ vorgemerkt, damit er nicht abends kommt).
 - Einlaufen: Upload-Kalender bekommt beim nächsten Analytics-Abruf (alle 6 Std.) 200 Tage Aufrufe; „Kommentare 24h“ und Radar-Tempo werden nach 24 Std. Verlauf genau.
+
+---
+
+### Phase 8: Schönheit & Bedienung (Wunsch vom 02.10.2026)
+
+**Gewünscht:** Ideen 25, 27, 28, 30 + „Seiten smoother, Hover-Effekte, alles was die App schöner macht“. F1-Stil bleibt.
+
+1. **Vier Bereiche + feste Navigation**
+   - **Rennen** (live): Status, Kanäle, Duell, Rennverlauf, Top Shorts, Boxenfunk, Kommentar-Puls.
+   - **Strategie**: Boxenstrategie, Renndistanz, Reifenverschleiß, Upload-Kalender.
+   - **Analyse**: Analytics-Überblick, Abo-Magneten, Herkunft.
+   - **Konkurrenz**: Fahrerwertung, Konkurrenz-Radar (als Bilder-Galerie).
+   - Computer: Reiter oben mit gleitender Markierung (roter Live-Punkt bei „Rennen“). Handy: Leiste **unten** mit Symbolen (Daumen-Reichweite).
+   - Gemeinsamer Rahmen bleibt beim Wechseln stehen → Daten werden nicht neu geladen, der Wechsel ist sofort da. Der Short-Steckbrief öffnet im selben Rahmen.
+2. **Seitenübergänge** (View Transitions): Inhalte gleiten in Richtung des gewählten Reiters, der Kopf bleibt stehen. Steckbrief schiebt sich von rechts herein, „zurück“ nach rechts hinaus. „Bewegung reduzieren“ wird respektiert.
+3. **Globaler Zeitraum-Schalter** 24h / 7 Tage / 28 Tage / Gesamt im Kopf – gilt für alle Widgets, wird im Browser gemerkt. Die einzelnen Zeitraum-Knöpfe in den Widgets entfallen.
+   - 24h und 7 Tage: aus den eigenen Schnappschüssen. **28 Tage**: aus YouTube Analytics (Aufrufe je Short und je Tag) → sofort echte Zahlen. **Gesamt**: Gesamtstand bzw. Analytics-Verlauf (bis 200 Tage).
+   - Kann ein Widget einen Zeitraum nicht (z. B. Konkurrenz ohne Analytics), zeigt es den nächstbesten und sagt das klein dazu.
+4. **Bilder überall + Vorschau**: Kanalbilder (Avatare) im Kopf, in Kanal-Karten, Duell und Fahrerwertung; Short-Vorschaubilder in allen Listen. Drüberfahren (Computer) → großes 9:16-Vorschaubild mit Titel und Zahlen. Kaputte Bilder → Farbverlauf in Kanalfarbe.
+5. **Hover & Feinschliff**: Karten mit „Spotlight“ (Lichtschein folgt der Maus) und leichtem Rahmen-Glühen, Zeilen-Hover, Knöpfe mit Druck-Effekt, schmale dunkle Scrollbalken, sichtbarer Tastatur-Fokus.
+6. **Skelette statt Leere**: Ladebildschirm als schimmerndes Skelett des Dashboards (mit Startampel), eigenes Skelett für den Steckbrief.
+7. **App-Symbol**: eigenes F1-Icon + Web-App-Manifest → „Zum Startbildschirm hinzufügen“ öffnet das Dashboard wie eine App.
+
+**Wo ich dich brauche:** nirgends.
 
 ---
 

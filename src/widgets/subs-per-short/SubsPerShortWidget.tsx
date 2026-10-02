@@ -8,6 +8,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { WidgetCard } from "@/components/ui/WidgetCard";
 import type { AnalyticsShort } from "@/lib/data/types";
 import { formatCompact, formatNumber, formatOneDecimal, formatPercentValue } from "@/lib/format";
+import { ShortLink } from "@/components/ui/ShortLink";
 
 type Sort = "subs" | "rate";
 const LIMIT = 10;
@@ -87,8 +88,8 @@ export function SubsPerShortWidget() {
                   <tr key={s.id} className="border-t border-line">
                     <td className="py-2 font-mono text-xs text-muted">{i + 1}</td>
                     <td className="py-2">
-                      <a
-                        href={`/short/${s.id}`}
+                      <ShortLink
+                        id={s.id}
                         className="flex items-center gap-3 hover:text-ink"
                       >
                         {s.thumbnailUrl ? (
@@ -113,7 +114,7 @@ export function SubsPerShortWidget() {
                           </span>
                           {ch ? <ChannelCode channel={ch} size="sm" /> : null}
                         </span>
-                      </a>
+                      </ShortLink>
                     </td>
                     <td className="num py-2 text-right font-semibold text-ink">+{formatNumber(s.subsGained)}</td>
                     <td className="num py-2 text-right text-ink-2">{formatCompact(s.views)}</td>

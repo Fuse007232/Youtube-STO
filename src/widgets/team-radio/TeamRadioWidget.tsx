@@ -6,6 +6,7 @@ import { ChannelCode } from "@/components/ui/ChannelCode";
 import { WidgetCard } from "@/components/ui/WidgetCard";
 import type { AlertItem } from "@/lib/data/types";
 import { formatAgo, formatNumber, formatOneDecimal } from "@/lib/format";
+import { ShortLink } from "@/components/ui/ShortLink";
 
 const KIND = {
   rocket: { icon: "🚀", label: "Raketenstart" },
@@ -63,7 +64,7 @@ function RadioItem({
 }) {
   const factor = a.baselineHour && a.baselineHour > 0 ? a.viewsLastHour / a.baselineHour : null;
   return (
-    <a href={`/short/${a.videoId}`} className="block">
+    <ShortLink id={a.videoId} className="block">
       <div className="flex items-center justify-between gap-2 text-[11px] text-muted">
         <span className="inline-flex items-center gap-2">
           <span aria-hidden>{KIND[a.kind].icon}</span>
@@ -92,6 +93,6 @@ function RadioItem({
           <span className="text-muted"> · ✉ gesendet</span>
         ) : null}
       </p>
-    </a>
+    </ShortLink>
   );
 }

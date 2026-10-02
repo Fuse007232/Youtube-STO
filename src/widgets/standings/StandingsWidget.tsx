@@ -10,6 +10,7 @@ import type { StandingsEntry } from "@/lib/data/types";
 import { formatCompact, formatNumber, formatSigned, formatWindowLabel } from "@/lib/format";
 import { HOUR_MS } from "@/lib/metrics/deltas";
 import { sortStandings, standingsValue, type StandingsMetric } from "@/lib/metrics/standings";
+import { ShortLink } from "@/components/ui/ShortLink";
 
 const METRICS: { value: StandingsMetric; label: string; long: string }[] = [
   { value: "views24h", label: "Aufrufe 24h", long: "Aufrufe in den letzten 24 Stunden" },
@@ -113,14 +114,14 @@ export function StandingsWidget() {
                   </span>
                   <span className="min-w-0 text-xs">
                     {e.bestShort24h ? (
-                      <a
-                        href={`/short/${e.bestShort24h.id}`}
+                      <ShortLink
+                        id={e.bestShort24h.id}
                         className="block truncate text-ink-2 hover:text-ink"
                         title={e.bestShort24h.title}
                       >
                         <span className="num font-semibold text-ink">+{formatCompact(e.bestShort24h.views24h)}</span>{" "}
                         {e.bestShort24h.title}
-                      </a>
+                      </ShortLink>
                     ) : (
                       <span className="text-muted">–</span>
                     )}

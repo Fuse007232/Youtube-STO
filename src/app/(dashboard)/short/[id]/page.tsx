@@ -13,6 +13,7 @@ const VALID_ID = /^[A-Za-z0-9_-]{4,40}$/;
 
 /** Steckbrief eines Shorts: /short/<Video-ID> */
 export default async function ShortPage(props: PageProps<"/short/[id]">) {
+  // Zusätzlich zum Türsteher (proxy.ts): Layouts laufen beim Wechseln nicht erneut
   if (!(await isAuthenticated())) redirect("/login");
   const { id } = await props.params;
 

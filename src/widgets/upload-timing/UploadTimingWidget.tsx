@@ -17,6 +17,7 @@ import {
 import { slotOf, TIMING } from "@/lib/metrics/upload-timing";
 import { slotTone } from "@/components/ui/slot-tone";
 import { TimingHeatmap } from "./TimingHeatmap";
+import { ShortLink } from "@/components/ui/ShortLink";
 
 const COMPETITORS = "competitors";
 const H = 3_600_000;
@@ -260,13 +261,13 @@ function TestLog({ recent }: { recent: TimingRecent[] }) {
                   <span className="block text-[11px] text-muted sm:ml-2 sm:inline">{range(block)}</span>
                 </td>
                 <td className="py-2 pr-2">
-                  <a
-                    href={`/short/${r.videoId}`}
+                  <ShortLink
+                    id={r.videoId}
                     className="block truncate text-ink hover:underline"
                     title={r.title}
                   >
                     {r.title || r.videoId}
-                  </a>
+                  </ShortLink>
                 </td>
                 <td className="py-2 text-right">
                   <Result r={r} now={now} />

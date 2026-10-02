@@ -17,41 +17,20 @@ import commentPulse from "./comment-pulse";
 import rivalRadar from "./rival-radar";
 
 /**
- * ZENTRALE WIDGET-LISTE – je Seite.
+ * ZENTRALE WIDGET-LISTE – je Bereich.
  * Reihenfolge hier = Reihenfolge auf der Seite.
- * Neues Widget: Ordner in src/widgets/ anlegen, oben importieren, hier auf einer
- * (oder mehreren) Seiten eintragen. Fertig.
+ * Neues Widget: Ordner in src/widgets/ anlegen, oben importieren, hier in einem
+ * (oder mehreren) Bereichen eintragen. Fertig.
  */
 export const PAGES: Record<DashboardPageId, WidgetDefinition[]> = {
-  // „Rennen“: was gerade passiert (Startseite)
-  race: [
-    statusBar,
-    channelOverview,
-    duelTower,
-    trendChart,
-    // Phase 6.3: Konkurrenz-Vergleich
-    standings,
-    topShorts,
-    // Phase 6: „Short geht ab“-Alarme
-    teamRadio,
-    // Phase 7: Kommentare + Konkurrenz-Radar
-    commentPulse,
-    rivalRadar,
-  ],
-  // „Analyse“: Auswertungen in Ruhe (/analyse)
-  analysis: [
-    statusBar,
-    // Phase 6.2: beste Upload-Uhrzeit
-    uploadTiming,
-    // Phase 7: Kalender, Short-Länge, Langzeit-Anteil
-    uploadCalendar,
-    shortLength,
-    catalogShare,
-    // Phase 5: YouTube Analytics (blenden sich aus, wenn die Datenquelle keine Analytics hat)
-    analyticsOverview,
-    subsPerShort,
-    audienceOrigin,
-  ],
+  // „Rennen“ (/): was gerade passiert
+  race: [statusBar, channelOverview, duelTower, trendChart, topShorts, teamRadio, commentPulse],
+  // „Strategie“ (/strategie): wann, wie lang, wie oft hochladen
+  strategy: [statusBar, uploadTiming, shortLength, catalogShare, uploadCalendar],
+  // „Analyse“ (/analyse): YouTube Analytics (blendet sich aus, wenn die Quelle keine Analytics hat)
+  analysis: [statusBar, analyticsOverview, subsPerShort, audienceOrigin],
+  // „Konkurrenz“ (/konkurrenz): Fahrerwertung + Radar
+  rivals: [statusBar, standings, rivalRadar],
 };
 
 /** Alle Widgets (jedes nur einmal). */

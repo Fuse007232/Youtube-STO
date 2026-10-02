@@ -5,6 +5,6 @@ export default defineWidget({
   id: "rival-radar",
   title: "Konkurrenz-Radar",
   description: "Konkurrenz-Shorts, die gerade ungewöhnlich abgehen – als Ideen-Quelle.",
-  size: "medium",
+  size: "full",
   component: RivalRadarWidget,
 });

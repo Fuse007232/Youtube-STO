@@ -13,6 +13,7 @@ import type { ChannelConfig } from "@/config/channels";
 import type { RankedShort, RankingPeriod } from "@/lib/data/types";
 import { formatAgo, formatCompact, formatDuration, formatWindowLabel, noHistoryHint } from "@/lib/format";
 import { metricFor, rankShorts } from "@/lib/metrics/ranking";
+import { ShortLink } from "@/components/ui/ShortLink";
 
 const PERIOD_LABEL: Record<RankingPeriod, string> = {
   "24h": "Aufrufe 24h",
@@ -182,12 +183,12 @@ function ShortRow({
       className="border-b border-line last:border-b-0 lg:[&:nth-child(5)]:border-b-0"
     >
       {linkable ? (
-        <a
-          href={`/short/${short.id}`}
+        <ShortLink
+          id={short.id}
           className="flex items-center gap-3 rounded-lg px-1 py-2 transition-colors hover:bg-surface-2"
         >
           {content}
-        </a>
+        </ShortLink>
       ) : (
         <div className="flex items-center gap-3 px-1 py-2">{content}</div>
       )}

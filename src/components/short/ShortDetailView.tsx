@@ -2,8 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { MotionConfig, motion } from "motion/react";
-import { useMemo, useState, type ReactNode } from "react";
+import { motion } from "motion/react";
+import { useMemo, useState, ViewTransition, type ReactNode } from "react";
 import {
   Bar,
   BarChart,
@@ -16,7 +16,10 @@ import {
   YAxis,
   type TooltipContentProps,
 } from "recharts";
+import { useLastPageHref } from "@/components/dashboard/DashboardShell";
+import { PAGE_TRANSITION } from "@/components/dashboard/WidgetGrid";
 import { ChannelCode } from "@/components/ui/ChannelCode";
+import { ArrowLeftIcon } from "@/components/ui/icons";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { WidgetCard } from "@/components/ui/WidgetCard";
 import { slotTone } from "@/components/ui/slot-tone";
@@ -43,6 +46,7 @@ type ChartMode = "total" | "hourly";
 /** Steckbrief eines Shorts – alles auf einen Blick. */
 export function ShortDetailView({ detail }: { detail: ShortDetail }) {
   const { short, channel } = detail;
+  const backHref = useLastPageHref();
   const now = detail.generatedAt;
   const likeRate = short.views > 0 ? short.likes / short.views : 0;
   // Jüngere Shorts: alles seit dem Upload; sonst seit Messbeginn (falls noch keine 24 Std./7 Tage)
@@ -51,17 +55,17 @@ export function ShortDetailView({ detail }: { detail: ShortDetail }) {
   const win7 = age < 7 * 24 * 3_600_000 ? "seit Upload" : formatWindowLabel(detail.historyHours, 168);
 
   return (
-    <MotionConfig reducedMotion="user">
-      <div className="mx-auto max-w-[1200px] px-4 pb-16 pt-6 sm:px-6 lg:px-8">
-        <nav className="mb-5 flex flex-wrap items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-3">
-            <Link href="/" className="rounded-lg border border-line px-2.5 py-1 text-muted hover:border-line-strong hover:text-ink-2">
-              ← Rennen
-            </Link>
-            <Link href="/analyse" className="rounded-lg border border-line px-2.5 py-1 text-muted hover:border-line-strong hover:text-ink-2">
-              Analyse
-            </Link>
-          </div>
+    <ViewTransition {...PAGE_TRANSITION}>
+      <div className="mx-auto max-w-[1200px]">
+        <nav className="mb-4 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <Link
+            href={backHref}
+            transitionTypes={["nav-back"]}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-muted transition hover:border-line-strong hover:text-ink-2 active:scale-95"
+          >
+            <ArrowLeftIcon className="h-3.5 w-3.5" />
+            Zurück
+          </Link>
           <p className="f1-heading text-[11px] text-live">Short-Steckbrief</p>
         </nav>
 
@@ -144,7 +148,7 @@ export function ShortDetailView({ detail }: { detail: ShortDetail }) {
           </div>
         </div>
       </div>
-    </MotionConfig>
+    </ViewTransition>
   );
 }
 

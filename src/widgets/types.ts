@@ -27,5 +27,5 @@ export function defineWidget(def: WidgetDefinition): WidgetDefinition {
   return def;
 }
 
-/** Seiten des Dashboards: „Rennen“ (live, Startseite) und „Analyse“ (in Ruhe). */
-export type DashboardPageId = "race" | "analysis";
+/** Bereiche des Dashboards (Reiter oben bzw. Leiste unten am Handy). */
+export type DashboardPageId = "race" | "strategy" | "analysis" | "rivals";

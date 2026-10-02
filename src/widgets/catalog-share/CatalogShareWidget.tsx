@@ -6,6 +6,7 @@ import { ChannelCode } from "@/components/ui/ChannelCode";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { WidgetCard } from "@/components/ui/WidgetCard";
 import { formatAgo, formatCompact, formatShare, formatWindowLabel, noHistoryHint } from "@/lib/format";
+import { ShortLink } from "@/components/ui/ShortLink";
 
 type Win = "24h" | "7d";
 /** Neueste Shorts = volle Kanalfarbe, je älter desto blasser. */
@@ -90,9 +91,9 @@ export function CatalogShareWidget() {
                     <ul className="mt-1 space-y-0.5">
                       {c.evergreens.slice(0, 3).map((e) => (
                         <li key={e.id} className="flex items-center justify-between gap-3 text-xs">
-                          <a href={`/short/${e.id}`} className="min-w-0 truncate text-ink-2 hover:text-ink hover:underline" title={e.title}>
+                          <ShortLink id={e.id} className="min-w-0 truncate text-ink-2 hover:text-ink hover:underline" title={e.title}>
                             {e.title}
-                          </a>
+                          </ShortLink>
                           <span className="shrink-0 text-muted">
                             <span className="num font-semibold text-ink">+{formatCompact(e.views24h)}</span> · {formatAgo(e.publishedAt, now)}
                           </span>

@@ -5,6 +5,6 @@ export default defineWidget({
   id: "comment-pulse",
   title: "Kommentar-Puls",
   description: "Neueste und meistgelikte Kommentare deiner Shorts und die Shorts mit den meisten neuen Kommentaren.",
-  size: "medium",
+  size: "full",
   component: CommentPulseWidget,
 });

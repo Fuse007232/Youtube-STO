@@ -7,6 +7,7 @@ import { ShortThumb } from "@/components/ui/ShortThumb";
 import { WidgetCard } from "@/components/ui/WidgetCard";
 import { formatAgo, formatCompact, formatOneDecimal } from "@/lib/format";
 import { RADAR } from "@/lib/metrics/radar";
+import { ShortLink } from "@/components/ui/ShortLink";
 
 /** Konkurrenz-Radar: Was geht bei der Konkurrenz gerade ab? */
 export function RivalRadarWidget() {
@@ -43,7 +44,7 @@ export function RivalRadarWidget() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.05 }}
               >
-                <a href={`/short/${r.id}`} className="flex items-center gap-3 py-2 hover:bg-surface-2/60">
+                <ShortLink id={r.id} className="flex items-center gap-3 py-2 hover:bg-surface-2/60">
                   <ShortThumb src={r.thumbnailUrl} color={ch?.color ?? "#555"} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm text-ink" title={r.title}>
@@ -77,7 +78,7 @@ export function RivalRadarWidget() {
                     </span>
                     <span className="num mt-0.5 block text-[11px] text-ink-2">+{formatCompact(r.views24h)}</span>
                   </span>
-                </a>
+                </ShortLink>
               </motion.li>
             );
           })}

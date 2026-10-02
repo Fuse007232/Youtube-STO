@@ -174,3 +174,8 @@ export function zoneShiftHours(timeZone: string, t: number): number {
   if (diff < -12) diff += 24 * Math.round(-diff / 24);
   return diff;
 }
+
+/** Faktor „×“: 2.53 → „2,5×“, ab 100 → „100×+“ (größere Zahlen sind nicht aussagekräftiger). */
+export function formatFactor(f: number): string {
+  return f >= 100 ? "100×+" : `${oneDecimalPlain.format(f)}×`;
+}

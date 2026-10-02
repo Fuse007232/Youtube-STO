@@ -4,7 +4,7 @@ import { motion } from "motion/react";
 import { useState } from "react";
 import { useDashboardData } from "@/components/dashboard/DashboardDataProvider";
 import { WidgetCard } from "@/components/ui/WidgetCard";
-import { formatAgo, formatCompact, formatOneDecimal } from "@/lib/format";
+import { formatAgo, formatCompact, formatFactor, formatOneDecimal } from "@/lib/format";
 import { RADAR } from "@/lib/metrics/radar";
 import { ShortLink } from "@/components/ui/ShortLink";
 
@@ -63,7 +63,7 @@ export function RivalRadarWidget() {
                           : "Aufrufe in 24 Std. im Vergleich zum Üblichen dieses Kanals"
                       }
                     >
-                      {formatOneDecimal(r.factor)}×
+                      {formatFactor(r.factor)}
                     </span>
                     <span className="absolute right-2 top-2.5 rounded bg-black/60 px-1 text-[9px] font-semibold uppercase tracking-wider text-white/90">
                       {r.kind === "new" ? "neu" : "Ausbruch"}

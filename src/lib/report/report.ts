@@ -1,6 +1,6 @@
 import { APP_CONFIG } from "@/config/app";
 import type { DashboardData, TimingAnalysis } from "@/lib/data/types";
-import { formatCompact, formatHourRange, formatNumber, formatSigned } from "@/lib/format";
+import { formatCompact, formatFactor, formatHourRange, formatNumber, formatSigned } from "@/lib/format";
 import { sectorStatus, type SectorStatus } from "@/lib/metrics/sector";
 import { sortStandings } from "@/lib/metrics/standings";
 import { TIMING } from "@/lib/metrics/upload-timing";
@@ -76,7 +76,7 @@ export function renderRaceReport(data: DashboardData, dayLabel: string) {
   if (hotComments) text.push("", `Meiste neue Kommentare: „${hotComments.title}“ (+${hotComments.comments24h})`);
   if (radar.length) {
     text.push("", "Konkurrenz-Radar:");
-    radar.forEach((r) => text.push(`  ${r.factor.toFixed(1).replace(".", ",")}× „${r.title}“ – ${url}/short/${r.id}`));
+    radar.forEach((r) => text.push(`  ${formatFactor(r.factor)} „${r.title}“ – ${url}/short/${r.id}`));
   }
   if (timing.length) text.push("", "Boxenstrategie:", ...timing.map((t) => `  ${t.name}: ${t.line}`));
   text.push("", `Dashboard: ${url}`);
@@ -140,7 +140,7 @@ ${
           radar
             .map(
               (r) =>
-                `<div style="font-size:14px;margin:4px 0"><b>${r.factor.toFixed(1).replace(".", ",")}×</b> <a href="${url}/short/${encodeURIComponent(r.id)}" style="color:#111">${escape(r.title)}</a></div>`,
+                `<div style="font-size:14px;margin:4px 0"><b>${formatFactor(r.factor)}</b> <a href="${url}/short/${encodeURIComponent(r.id)}" style="color:#111">${escape(r.title)}</a></div>`,
             )
             .join(""),
       )

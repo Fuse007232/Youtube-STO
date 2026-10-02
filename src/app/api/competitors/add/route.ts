@@ -41,10 +41,12 @@ export async function POST(req: Request) {
     const color = pickCompetitorColor(existing.map((c) => c.color));
     await store.addCompetitor({ id: ch.id, name: ch.title, code, color, avatarUrl: ch.avatarUrl });
 
-    // Gleich die ersten Zahlen holen (im Hintergrund).
+    // Gleich die ersten Zahlen holen (im Hintergrund) – als VOLLER Lauf: So sind von Anfang an
+    // alle beobachteten Shorts (bis 200) dabei. Sonst kämen beim ersten vollen Lauf auf einen
+    // Schlag ältere Shorts dazu, und die Summe der Aufrufe würde einen falschen „Gewinn“ zeigen.
     after(async () => {
       try {
-        await runSnapshot({ store, client, trigger: "manual", channels: await loadTrackedChannels(store) });
+        await runSnapshot({ store, client, trigger: "manual", mode: "full", channels: await loadTrackedChannels(store) });
       } catch (e) {
         console.error("[competitors] Erst-Schnappschuss fehlgeschlagen:", e);
       }

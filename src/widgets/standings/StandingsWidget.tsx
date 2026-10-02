@@ -9,11 +9,18 @@ import { WidgetCard } from "@/components/ui/WidgetCard";
 import type { StandingsEntry } from "@/lib/data/types";
 import { formatCompact, formatNumber, formatSigned, formatWindowLabel } from "@/lib/format";
 import { HOUR_MS } from "@/lib/metrics/deltas";
-import { sortStandings, standingsValue, type StandingsMetric } from "@/lib/metrics/standings";
+import {
+  sortStandings,
+  standingsValue,
+  standingsViews,
+  type StandingsMetric,
+  type StandingsRange,
+} from "@/lib/metrics/standings";
+import { RangeNote, useTimeRange } from "@/components/dashboard/TimeRange";
 import { ShortLink } from "@/components/ui/ShortLink";
 
 const METRICS: { value: StandingsMetric; label: string; long: string }[] = [
-  { value: "views24h", label: "Aufrufe 24h", long: "Aufrufe in den letzten 24 Stunden" },
+  { value: "views", label: "Aufrufe", long: "Aufrufe im Zeitraum" },
   { value: "subscribers", label: "Abos", long: "Abonnenten (öffentlich gerundet)" },
   { value: "pace", label: "Tempo", long: "Aufrufe pro Stunde (zuletzt)" },
   { value: "avgPerShort", label: "Ø pro Short", long: "Ø Aufrufe der Shorts aus den letzten 30 Tagen" },
@@ -28,26 +35,33 @@ function historyHoursOf(e: StandingsEntry): number {
 
 export function StandingsWidget() {
   const { data } = useDashboardData();
-  const [metric, setMetric] = useState<StandingsMetric>("views24h");
+  const [metric, setMetric] = useState<StandingsMetric>("views");
+  const { range: globalRange } = useTimeRange();
   if (!data.standings) return null;
+  // 28 Tage gibt es für Konkurrenten nicht (kein Analytics) → fair für alle 7 Tage
+  const range: StandingsRange = globalRange === "28d" ? "7d" : globalRange;
+  const rangeText = range === "24h" ? "24h" : range === "7d" ? "7 Tage" : "gesamt";
 
-  const rows = sortStandings(data.standings, metric);
-  const leader = rows[0] ? standingsValue(rows[0], metric) : 0;
+  const rows = sortStandings(data.standings, metric, range);
+  const leader = rows[0] ? standingsValue(rows[0], metric, range) : 0;
   const hasRivals = rows.some((r) => !r.isOwn);
   const current = METRICS.find((m) => m.value === metric)!;
-  const big = metric === "views24h" || metric === "subscribers" || metric === "pace" || metric === "avgPerShort";
+  const big = metric === "views" || metric === "subscribers" || metric === "pace" || metric === "avgPerShort";
 
   return (
     <WidgetCard
       title="Fahrerwertung"
-      subtitle={`${current.long} · deine Kanäle gegen die Konkurrenz`}
+      subtitle={`${metric === "views" ? `Aufrufe ${rangeText}` : current.long} · deine Kanäle gegen die Konkurrenz`}
       actions={
+        <>
+        {globalRange === "28d" ? <RangeNote>28 Tage nur für eigene Kanäle – alle auf 7 Tagen</RangeNote> : null}
         <SegmentedControl
           label="Wertung nach"
           value={metric}
           onChange={setMetric}
           options={METRICS.map((m) => ({ value: m.value, label: m.label }))}
         />
+        </>
       }
     >
       <div className="overflow-x-auto">
@@ -57,14 +71,14 @@ export function StandingsWidget() {
             <span>Kanal</span>
             <span className="text-right">{current.label}</span>
             <span className="text-right">Abos</span>
-            <span className="text-right">Aufrufe 24h</span>
+            <span className="text-right">Aufrufe {rangeText}</span>
             <span className="text-right">Tempo/Std.</span>
             <span className="text-right">Ø/Short</span>
             <span>Bester Short 24h</span>
           </div>
           <ol className="space-y-1">
             {rows.map((e, i) => {
-              const value = standingsValue(e, metric);
+              const value = standingsValue(e, metric, range);
               const hours = historyHoursOf(e);
               return (
                 <motion.li
@@ -98,12 +112,12 @@ export function StandingsWidget() {
                     <AnimatedNumber value={value} format={big ? "compact" : "number"} countUp={false} />
                     <span className="block text-[10px] font-normal text-muted">
                       {i === 0 ? "führt" : formatSigned(value - leader, big)}
-                      {metric === "views24h" && hours < 24 ? ` · ${formatWindowLabel(hours)}` : ""}
+                      {metric === "views" && range === "24h" && hours < 24 ? ` · ${formatWindowLabel(hours)}` : ""}
                     </span>
                   </span>
                   <span className="num text-right text-xs text-ink-2">{formatCompact(e.summary.current.subscribers)}</span>
                   <span className="num text-right text-xs text-ink-2">
-                    {formatCompact(e.summary.delta24h.views)}
+                    {formatCompact(standingsViews(e, range))}
                   </span>
                   <span className="num text-right text-xs text-ink-2">
                     {formatCompact(e.summary.rate.viewsPerSecond * 3600)}

@@ -14,20 +14,29 @@ import type { RankedShort, RankingPeriod } from "@/lib/data/types";
 import { formatAgo, formatCompact, formatDuration, formatWindowLabel, noHistoryHint } from "@/lib/format";
 import { metricFor, rankShorts } from "@/lib/metrics/ranking";
 import { ShortLink } from "@/components/ui/ShortLink";
+import { RangeNote, useTimeRange } from "@/components/dashboard/TimeRange";
 
 const PERIOD_LABEL: Record<RankingPeriod, string> = {
   "24h": "Aufrufe 24h",
   "7d": "Aufrufe 7 Tage",
+  "28d": "Aufrufe 28 Tage (YouTube Analytics)",
   all: "Aufrufe gesamt",
 };
 
 export function TopShortsWidget() {
   const { data } = useDashboardData();
   const now = useNow();
-  const [chosenPeriod, setPeriod] = useState<RankingPeriod>("24h");
-  // Ohne Verlauf gibt es nur die Gesamt-Rangliste.
-  const period: RankingPeriod = data.hasHistory ? chosenPeriod : "all";
-  const historyHint = data.hasHistory ? undefined : `Verfügbar ${noHistoryHint(data.source)}`;
+  const { range } = useTimeRange();
+  // Globaler Zeitraum – mit ehrlichem Rückfall, wenn ein Zeitraum (noch) nicht geht.
+  let period: RankingPeriod = range;
+  let note: string | null = null;
+  if (!data.hasHistory && (range === "24h" || range === "7d")) {
+    period = "all";
+    note = `${range === "24h" ? "24h" : "7 Tage"} ${noHistoryHint(data.source)} – zeigt Gesamt`;
+  } else if (range === "28d" && data.topShorts["28d"].length === 0) {
+    period = data.hasHistory ? "7d" : "all";
+    note = `28 Tage nur mit YouTube Analytics – zeigt ${period === "7d" ? "7 Tage" : "Gesamt"}`;
+  }
   // Weniger gemessen als der Zeitraum lang ist → ehrlich „seit …“ dazuschreiben.
   const windowHours = period === "24h" ? 24 : period === "7d" ? 168 : 0;
   const subtitle =
@@ -59,16 +68,7 @@ export function TopShortsWidget() {
               ...channels.map((c) => ({ value: c.id, label: c.code })),
             ]}
           />
-          <SegmentedControl
-            label="Zeitraum"
-            value={period}
-            onChange={setPeriod}
-            options={[
-              { value: "24h", label: "24h", disabled: !data.hasHistory, hint: historyHint },
-              { value: "7d", label: "7 Tage", disabled: !data.hasHistory, hint: historyHint },
-              { value: "all", label: "Gesamt" },
-            ]}
-          />
+          {note ? <RangeNote>{note}</RangeNote> : null}
         </>
       }
     >
@@ -84,7 +84,7 @@ export function TopShortsWidget() {
               period={period}
               channel={channelById.get(s.channelId)}
               now={now}
-              linkable={!data.isDemo}
+              linkable={data.source !== "youtube"}
               hasHistory={data.hasHistory}
               windowLabel={formatWindowLabel(data.historyHours)}
             />

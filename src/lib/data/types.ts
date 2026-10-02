@@ -8,7 +8,9 @@ import type { ChannelConfig } from "@/config/channels";
 
 export type DataSourceKind = "mock" | "youtube" | "database";
 
-export type RankingPeriod = "24h" | "7d" | "all";
+export type RankingPeriod = "24h" | "7d" | "28d" | "all";
+/** Globaler Zeitraum-Schalter (Phase 8) – gleiche Werte wie die Ranglisten. */
+export type TimeRange = RankingPeriod;
 
 /** Ein Messpunkt im Verlauf eines Kanals (t = Zeitpunkt in Millisekunden). */
 export interface ChannelPoint {
@@ -63,6 +65,8 @@ export interface RankedShort {
   views: number;
   views24h: number;
   views7d: number;
+  /** Aufrufe der letzten 28 Tage laut YouTube Analytics (nur eigene Kanäle, Top 200; sonst null/fehlt). */
+  views28d?: number | null;
   likes: number;
 }
 

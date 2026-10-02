@@ -205,6 +205,7 @@ function simulateChannel(channel: ChannelConfig, lastSnapshotAt: number): Channe
   const actNow = activityHours(lastSnapshotAt);
   const act24 = activityHours(lastSnapshotAt - DAY_MS);
   const act7d = activityHours(lastSnapshotAt - 7 * DAY_MS);
+  const act28d = activityHours(lastSnapshotAt - 28 * DAY_MS);
   const ranked: RankedShort[] = shorts.map((s) => {
     const views = viewsAt(s, lastSnapshotAt, actNow);
     return {
@@ -217,6 +218,7 @@ function simulateChannel(channel: ChannelConfig, lastSnapshotAt: number): Channe
       views: Math.round(views),
       views24h: Math.round(views - viewsAt(s, lastSnapshotAt - DAY_MS, act24)),
       views7d: Math.round(views - viewsAt(s, lastSnapshotAt - 7 * DAY_MS, act7d)),
+      views28d: Math.round(views - viewsAt(s, lastSnapshotAt - 28 * DAY_MS, act28d)),
       likes: Math.round(views * s.likeRate),
     };
   });
@@ -274,6 +276,7 @@ export class MockDataSource implements DataSource {
       quotaUsedToday: null,
       analytics,
       dailyViews: new Map(analytics.map((a) => [a.channelId, new Map(a.daily.map((d) => [d.day, d.views]))])),
+      views28d: new Map(shorts.filter((s) => (s.views28d ?? 0) > 0).map((s) => [s.id, s.views28d ?? 0])),
       alerts: mockAlerts(shorts, lastSnapshotAt),
       rivals: cache.rivals.map((s) => s.raw),
       rivalShorts: cache.rivals.flatMap((s) => s.shorts),

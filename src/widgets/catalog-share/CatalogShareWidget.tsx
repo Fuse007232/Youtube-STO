@@ -1,10 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import { useDashboardData } from "@/components/dashboard/DashboardDataProvider";
 import { ChannelCode } from "@/components/ui/ChannelCode";
-import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { WidgetCard } from "@/components/ui/WidgetCard";
+import { RangeNote, useTimeRange } from "@/components/dashboard/TimeRange";
 import { formatAgo, formatCompact, formatShare, formatWindowLabel, noHistoryHint } from "@/lib/format";
 import { ShortLink } from "@/components/ui/ShortLink";
 
@@ -16,7 +15,10 @@ const AGE_ALPHA = [100, 72, 50, 32, 18];
 export function CatalogShareWidget() {
   const { data } = useDashboardData();
   const now = data.generatedAt;
-  const [win, setWin] = useState<Win>("24h");
+  const { range } = useTimeRange();
+  // Nach Alter aufgeteilt gibt es nur 24h und 7 Tage (aus den Schnappschüssen)
+  const win: Win = range === "24h" ? "24h" : "7d";
+  const note = range === "28d" || range === "all" ? "zeigt 7 Tage (länger wird nicht nach Alter gemessen)" : null;
   const catalog = data.catalog;
   const label = formatWindowLabel(data.historyHours, win === "24h" ? 24 : 168);
 
@@ -24,17 +26,7 @@ export function CatalogShareWidget() {
     <WidgetCard
       title="Reifenverschleiß · Neu vs. Katalog"
       subtitle={`Woher kommen die Aufrufe ${label}? Nach Alter der Shorts.`}
-      actions={
-        <SegmentedControl
-          label="Zeitraum"
-          value={win}
-          onChange={setWin}
-          options={[
-            { value: "24h", label: "24h" },
-            { value: "7d", label: "7 Tage" },
-          ]}
-        />
-      }
+      actions={note ? <RangeNote>{note}</RangeNote> : undefined}
     >
       {!catalog ? (
         <p className="py-8 text-center text-sm text-muted">Verfügbar {noHistoryHint(data.source)}.</p>

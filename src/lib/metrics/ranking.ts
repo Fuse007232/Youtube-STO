@@ -7,6 +7,8 @@ export function metricFor(short: RankedShort, period: RankingPeriod): number {
       return short.views24h;
     case "7d":
       return short.views7d;
+    case "28d":
+      return short.views28d ?? 0;
     case "all":
       return short.views;
   }

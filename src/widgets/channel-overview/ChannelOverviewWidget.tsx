@@ -8,10 +8,13 @@ import {
 } from "@/components/dashboard/DashboardDataProvider";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import type { ChannelSummary } from "@/lib/data/types";
-import { formatSigned, formatWindowLabel } from "@/lib/format";
+import { formatSigned } from "@/lib/format";
+import { channelGain, type ChannelGain } from "@/lib/metrics/range";
+import { useTimeRange } from "@/components/dashboard/TimeRange";
 
 export function ChannelOverviewWidget() {
   const { data } = useDashboardData();
+  const { range } = useTimeRange();
   return (
     <div className="grid gap-4 md:grid-cols-2">
       {data.channels.map((c) => (
@@ -19,7 +22,12 @@ export function ChannelOverviewWidget() {
           key={c.channel.id}
           summary={c}
           hasHistory={data.hasHistory}
-          windowLabel={formatWindowLabel(data.historyHours)}
+          gain={channelGain(
+            c,
+            data.analytics?.find((a) => a.channelId === c.channel.id),
+            range,
+            data.historyHours,
+          )}
         />
       ))}
     </div>
@@ -29,14 +37,19 @@ export function ChannelOverviewWidget() {
 function ChannelCard({
   summary,
   hasHistory,
-  windowLabel,
+  gain,
 }: {
   summary: ChannelSummary;
   hasHistory: boolean;
-  windowLabel: string;
+  gain: ChannelGain;
 }) {
   const live = useLiveChannel(summary);
-  const { channel, current, delta24h, subscribersRounded } = summary;
+  const { channel, current, subscribersRounded } = summary;
+  // Gesamt-Ansicht: die großen Zahlen SIND schon der Gesamtstand → keine Zusatzzeile
+  const showDelta = gain.effective !== "all";
+  // 24h/7 Tage laufen live hochgerechnet weiter (28 Tage = Analytics, fester Stand)
+  const liveExtra = gain.effective === "24h" || gain.effective === "7d" ? live.views - current.views : 0;
+  const windowLabel = gain.label;
 
   // Aufrufe pro Stunde über die letzten 7 Tage (für die kleine Kurve im Hintergrund).
   const spark = summary.history7d.slice(1).map((p, i) => ({
@@ -131,7 +144,7 @@ function ChannelCard({
             label="Abonnenten"
             hint={subscribersRounded ? "öffentlich gerundet" : undefined}
             value={<AnimatedNumber value={current.subscribers} />}
-            delta={hasHistory ? delta24h.subscribers : null}
+            delta={!showDelta ? undefined : hasHistory || gain.effective === "28d" ? gain.subscribers : null}
             windowLabel={windowLabel}
           />
           <Stat
@@ -139,16 +152,17 @@ function ChannelCard({
             hint={live.isEstimated ? "≈ live hochgerechnet" : undefined}
             value={<AnimatedNumber value={live.views} format="compact" />}
             title={Math.round(live.views).toLocaleString("de-DE")}
-            delta={hasHistory ? live.views24h : null}
+            delta={!showDelta ? undefined : hasHistory || gain.effective === "28d" ? (gain.views === null ? null : gain.views + liveExtra) : null}
             windowLabel={windowLabel}
           />
           <Stat
             label="Shorts"
             value={<AnimatedNumber value={current.videoCount} />}
-            delta={hasHistory ? delta24h.videos : null}
+            delta={!showDelta || (gain.videos === null && gain.effective === "28d") ? undefined : hasHistory ? gain.videos : null}
             windowLabel={windowLabel}
           />
         </dl>
+        {gain.note ? <p className="mt-3 text-[10px] text-muted">{gain.note}</p> : null}
       </div>
     </article>
   );
@@ -164,8 +178,8 @@ function Stat({
 }: {
   label: string;
   value: React.ReactNode;
-  /** null = noch kein 24h-Wert verfügbar. */
-  delta: number | null;
+  /** null = noch kein Wert verfügbar, undefined = keine Zusatzzeile. */
+  delta?: number | null;
   hint?: string;
   title?: string;
   windowLabel?: string;
@@ -182,8 +196,8 @@ function Stat({
         {value}
       </dd>
       <dd className="mt-1 text-xs text-ink-2">
-        {delta === null ? (
-          <span className="text-muted">24h-Wert folgt</span>
+        {delta === undefined ? null : delta === null ? (
+          <span className="text-muted">Wert folgt</span>
         ) : (
           <>
             <span className="num font-semibold">

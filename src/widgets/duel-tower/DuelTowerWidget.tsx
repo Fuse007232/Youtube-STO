@@ -9,6 +9,8 @@ import type { ChannelConfig } from "@/config/channels";
 import type { ChannelSummary } from "@/lib/data/types";
 import { formatClock, formatSigned, formatWindowLabel, noHistoryHint } from "@/lib/format";
 import { sectorStatus, type SectorStatus } from "@/lib/metrics/sector";
+import { channelGain, rangeLabel } from "@/lib/metrics/range";
+import { useTimeRange } from "@/components/dashboard/TimeRange";
 
 interface Entry {
   channel: ChannelConfig;
@@ -52,8 +54,18 @@ export function DuelTowerWidget() {
     status: "neutral",
   }));
 
-  // Ohne Verlauf: Duell über die Gesamtwerte statt über 24 Stunden.
-  const totalsMode = !data.hasHistory;
+  const { range } = useTimeRange();
+  // Ohne Verlauf oder „Gesamt“ gewählt: Duell über die Gesamtwerte.
+  const totalsMode = !data.hasHistory || range === "all";
+  // 7 bzw. 28 Tage: Gewinne im Zeitraum (28 Tage aus YouTube Analytics)
+  const windowMode = !totalsMode && (range === "7d" || range === "28d");
+  const gains = rows.map(({ summary: s, live }) => {
+    const g = channelGain(s, data.analytics?.find((a) => a.channelId === s.channel.id), range, data.historyHours);
+    return { s, g, liveExtra: g.effective === "7d" ? live.views - s.current.views : 0 };
+  });
+  const g0 = gains[0]?.g;
+  const windowLabel = !g0 ? "" : g0.label.startsWith("in ") ? rangeLabel(g0.effective) : g0.label;
+  const windowNote = gains.find((x) => x.g.note)?.g.note ?? null;
   // Weniger als 24h gemessen: Gewinne gelten „seit Messbeginn“.
   const partial = data.hasHistory && data.historyHours < 24;
   const fullAt = data.lastSnapshotAt + (24 - data.historyHours) * 3_600_000;
@@ -87,7 +99,34 @@ export function DuelTowerWidget() {
           gapCompact: true,
         },
       ]
-    : [
+    : windowMode
+      ? [
+          {
+            title: "Aufrufe",
+            entries: gains.map(({ s, g, liveExtra }) => neutral(s, (g.views ?? 0) + liveExtra)),
+            format: "number" as const,
+            gapCompact: true,
+          },
+          {
+            title: "Abos",
+            note: anyRoundedNote(data.channels),
+            entries: gains.map(({ s, g }) => neutral(s, g.subscribers ?? 0)),
+            format: "signed" as const,
+            gapCompact: false,
+          },
+          ...(gains.every(({ g }) => g.videos !== null)
+            ? [
+                {
+                  title: "Neue Shorts",
+                  entries: gains.map(({ s, g }) => neutral(s, g.videos ?? 0)),
+                  format: "number" as const,
+                  gapCompact: false,
+                },
+              ]
+            : []),
+          { title: "Tempo · Aufrufe/Std.", entries: pace, format: "number" as const, gapCompact: true },
+        ]
+      : [
         { title: "Aufrufe", entries: views, format: "number" as const, gapCompact: true },
         {
           title: "Abos",
@@ -109,13 +148,19 @@ export function DuelTowerWidget() {
       title={
         totalsMode
           ? "Duell · Gesamtstand"
+          : windowMode
+            ? `Duell · ${windowLabel}`
           : partial
             ? `Duell · ${formatWindowLabel(data.historyHours)}`
             : "Duell · Letzte 24h"
       }
       subtitle={
         totalsMode
-          ? `Echte Gesamtzahlen · 24h-Duell ${noHistoryHint(data.source)}`
+          ? data.hasHistory
+            ? "Echte Gesamtzahlen"
+            : `Echte Gesamtzahlen · 24h-Duell ${noHistoryHint(data.source)}`
+          : windowMode
+            ? (windowNote ?? "Gewinne im gewählten Zeitraum")
           : partial
             ? `Messung läuft · volle 24h ab ${formatClock(fullAt)} Uhr`
             : "Gleitend: die letzten 24 Stunden bis jetzt"
@@ -157,7 +202,7 @@ export function DuelTowerWidget() {
         ))}
       </div>
 
-      {totalsMode ? null : (
+      {totalsMode || windowMode ? null : (
       <ul className="mt-5 flex flex-wrap gap-x-4 gap-y-1 border-t border-line pt-3 text-[11px] text-muted">
         {(["best", "improved", "worse"] as const).map((s) => (
           <li key={s} className="inline-flex items-center gap-1.5">

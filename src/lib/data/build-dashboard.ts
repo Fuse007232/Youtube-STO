@@ -79,6 +79,8 @@ export interface RawDashboardInput {
   } | null;
   /** Aufrufe je Tag (Analytics) je eigenem Kanal – für den Upload-Kalender. */
   dailyViews?: Map<string, Map<string, number>>;
+  /** Aufrufe je Short in 28 Tagen (YouTube Analytics, nur eigene Kanäle). */
+  views28d?: Map<string, number>;
   /** Gespeicherte Kommentare + Kommentar-Zuwachs (fehlt = kein Kommentar-Puls). */
   comments?: { recent: CommentItem[]; top: CommentItem[]; gains: CommentGainRow[] } | null;
 }
@@ -165,6 +167,15 @@ export function buildDashboard(input: RawDashboardInput): DashboardData {
     topShorts: {
       "24h": withHistory("24h"),
       "7d": withHistory("7d"),
+      "28d": input.views28d
+        ? topShortsPerChannel(
+            input.shorts
+              .filter((s) => input.views28d!.has(s.id))
+              .map((s) => ({ ...s, views28d: input.views28d!.get(s.id)! })),
+            "28d",
+            limit,
+          )
+        : [],
       all: topShortsPerChannel(input.shorts, "all", limit),
     },
     quota: {

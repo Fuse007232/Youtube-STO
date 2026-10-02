@@ -134,6 +134,7 @@ export class DatabaseDataSource implements DataSource {
       quotaUsedToday,
       analytics: analyticsData?.analytics ?? null,
       dailyViews: analyticsData?.dailyViews,
+      views28d: analyticsData && analyticsData.views28d.size > 0 ? analyticsData.views28d : undefined,
       alerts,
       rivals: rivals?.raw,
       rivalShorts: rivals ? rankings.filter((s) => rivals.ids.has(s.channelId)) : undefined,
@@ -272,7 +273,11 @@ export class DatabaseDataSource implements DataSource {
     ids: string[],
     rankings: RankedShort[],
     now: number,
-  ): Promise<{ analytics: ChannelAnalytics[]; dailyViews: Map<string, Map<string, number>> } | null> {
+  ): Promise<{
+    analytics: ChannelAnalytics[];
+    dailyViews: Map<string, Map<string, number>>;
+    views28d: Map<string, number>;
+  } | null> {
     const reader = this.opts.analytics!;
     try {
       const since = new Date(now - 40 * 24 * HOUR_MS).toISOString().slice(0, 10);
@@ -299,7 +304,8 @@ export class DatabaseDataSource implements DataSource {
           videoInfo,
         }),
       );
-      return { analytics, dailyViews };
+      const views28d = new Map(videos.filter((v) => ids.includes(v.channelId)).map((v) => [v.videoId, v.views]));
+      return { analytics, dailyViews, views28d };
     } catch (e) {
       console.error("[analytics] Lesen fehlgeschlagen:", e);
       return null;

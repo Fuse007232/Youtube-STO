@@ -15,18 +15,27 @@ import { useDashboardData } from "@/components/dashboard/DashboardDataProvider";
 import { ChannelCode } from "@/components/ui/ChannelCode";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { WidgetCard } from "@/components/ui/WidgetCard";
-import type { ChannelSummary } from "@/lib/data/types";
-import { formatClock, formatCompact, formatDayClock, formatSigned } from "@/lib/format";
+import type { ChannelSummary, DashboardData, TimeRange } from "@/lib/data/types";
+import { formatClock, formatCompact, formatDate, formatDayClock, formatSigned } from "@/lib/format";
+import { rangeLabel } from "@/lib/metrics/range";
+import { RangeNote, useTimeRange } from "@/components/dashboard/TimeRange";
 
 type Metric = "views" | "subscribers";
-type Range = "24h" | "7d";
-
 interface Row {
   t: number;
   [channelId: string]: number;
 }
 
-function buildRows(channels: ChannelSummary[], metric: Metric, range: Range): Row[] {
+interface Series {
+  rows: Row[];
+  /** true = ein Punkt pro Tag (Achse zeigt Datum statt Uhrzeit). */
+  daily: boolean;
+  effective: TimeRange;
+  note: string | null;
+}
+
+/** Aus Schnappschüssen (24h / 7 Tage): Gewinn seit Beginn des Zeitraums. */
+function snapshotRows(channels: ChannelSummary[], metric: Metric, range: "24h" | "7d"): Row[] {
   const byT = new Map<number, Row>();
   for (const c of channels) {
     const points = range === "24h" ? c.history24h : c.history7d;
@@ -40,31 +49,89 @@ function buildRows(channels: ChannelSummary[], metric: Metric, range: Range): Ro
   return [...byT.values()].sort((a, b) => a.t - b.t);
 }
 
+/** Aus Tageswerten (28 Tage / Gesamt): aufsummiert je Kanal. */
+function dailyRows(perChannel: { id: string; days: { day: string; value: number }[] }[]): Row[] {
+  const byT = new Map<number, Row>();
+  for (const c of perChannel) {
+    let sum = 0;
+    for (const d of [...c.days].sort((a, b) => a.day.localeCompare(b.day))) {
+      sum += d.value;
+      const t = Date.parse(`${d.day}T12:00:00Z`);
+      const row = byT.get(t) ?? { t };
+      row[c.id] = sum;
+      byT.set(t, row);
+    }
+  }
+  return [...byT.values()].sort((a, b) => a.t - b.t);
+}
+
+function buildSeries(data: DashboardData, metric: Metric, range: TimeRange): Series {
+  const channels = data.channels;
+  const analytics = (data.analytics ?? []).filter((a) => a.daily.length > 0);
+  const has28 = analytics.length > 0;
+  const fromSnapshots = (r: "24h" | "7d", note: string | null): Series => ({
+    rows: data.hasHistory ? snapshotRows(channels, metric, r) : [],
+    daily: false,
+    effective: r,
+    note,
+  });
+  const from28 = (note: string | null): Series => ({
+    rows: dailyRows(
+      analytics.map((a) => ({
+        id: a.channelId,
+        days: a.daily.slice(-28).map((d) => ({ day: d.day, value: metric === "views" ? d.views : d.subsGained - d.subsLost })),
+      })),
+    ),
+    daily: true,
+    effective: "28d",
+    note,
+  });
+
+  if (range === "24h" || range === "7d") return fromSnapshots(range, null);
+  if (range === "28d") return has28 ? from28("YouTube Analytics · 2–3 Tage Verzug") : fromSnapshots("7d", "28 Tage nur mit YouTube Analytics – zeigt 7 Tage");
+  // Gesamt: Aufrufe pro Tag aus dem Upload-Kalender (bis ~6 Monate), Abos nur 28 Tage
+  const calendar = (data.calendar ?? []).filter((c) => c.days.some((d) => d.views !== null));
+  if (metric === "views" && calendar.length > 0) {
+    return {
+      rows: dailyRows(
+        calendar.map((c) => ({
+          id: c.channelId,
+          days: c.days.filter((d) => d.views !== null).map((d) => ({ day: d.day, value: d.views ?? 0 })),
+        })),
+      ),
+      daily: true,
+      effective: "all",
+      note: "YouTube Analytics · bis zu 6 Monate",
+    };
+  }
+  return has28 ? from28("Abos gesamt gibt es nicht als Verlauf – zeigt 28 Tage") : fromSnapshots("7d", "Ohne YouTube Analytics – zeigt 7 Tage");
+}
+
 export function TrendChartWidget() {
   const { data } = useDashboardData();
   const [metric, setMetric] = useState<Metric>("views");
-  const [range, setRange] = useState<Range>("24h");
+  const { range } = useTimeRange();
 
   // Nur neu berechnen, wenn ein neuer Schnappschuss da ist (sonst startet die Animation ständig neu).
   const snapshotKey = data.lastSnapshotAt;
-  const channels = data.channels;
-  const rows = useMemo(
-    () => buildRows(channels, metric, range),
+  const series = useMemo(
+    () => buildSeries(data, metric, range),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [snapshotKey, metric, range],
   );
+  const rows = series.rows;
+  const channels = data.channels;
   const lastIndex = rows.length - 1;
 
-  if (!data.hasHistory) return <NoHistoryYet />;
+  if (rows.length < 2 && !series.daily && !data.hasHistory) return <NoHistoryYet />;
+  const fmtTick = (t: number) => (series.daily ? formatDate(t).slice(0, 6) : series.effective === "24h" ? formatClock(t) : formatDayClock(t));
 
   return (
     <WidgetCard
       title="Rennverlauf"
-      subtitle={
-        metric === "views"
-          ? "Gewonnene Aufrufe seit Beginn des Zeitraums"
-          : "Gewonnene Abos seit Beginn des Zeitraums (öffentlich gerundet → Stufen)"
-      }
+      subtitle={`${metric === "views" ? "Gewonnene Aufrufe" : "Gewonnene Abos"} · ${rangeLabel(series.effective)}${
+        series.daily ? " (pro Tag aufsummiert)" : metric === "subscribers" ? " (öffentlich gerundet → Stufen)" : ""
+      }`}
       actions={
         <>
           <SegmentedControl
@@ -76,15 +143,7 @@ export function TrendChartWidget() {
               { value: "subscribers", label: "Abos" },
             ]}
           />
-          <SegmentedControl
-            label="Zeitraum"
-            value={range}
-            onChange={setRange}
-            options={[
-              { value: "24h", label: "24h" },
-              { value: "7d", label: "7 Tage" },
-            ]}
-          />
+          {series.note ? <RangeNote>{series.note}</RangeNote> : null}
         </>
       }
     >
@@ -107,7 +166,7 @@ export function TrendChartWidget() {
               type="number"
               scale="time"
               domain={["dataMin", "dataMax"]}
-              tickFormatter={(t: number) => (range === "24h" ? formatClock(t) : formatDayClock(t))}
+              tickFormatter={fmtTick}
               stroke="var(--axis)"
               tick={{ fill: "var(--muted)", fontSize: 11 }}
               tickLine={false}
@@ -119,11 +178,11 @@ export function TrendChartWidget() {
               tick={{ fill: "var(--muted)", fontSize: 11 }}
               tickLine={false}
               axisLine={false}
-              width={56}
+              width={68}
             />
             <Tooltip
               cursor={{ stroke: "var(--border-strong)", strokeWidth: 1 }}
-              content={(props) => <ChartTooltip {...props} channels={channels} range={range} />}
+              content={(props) => <ChartTooltip {...props} channels={channels} fmt={series.daily ? (t) => formatDate(t).slice(0, 6) : series.effective === "24h" ? formatClock : formatDayClock} />}
             />
             {channels.map((c) => (
               <Line
@@ -170,13 +229,13 @@ function ChartTooltip({
   payload,
   label,
   channels,
-  range,
-}: TooltipContentProps & { channels: ChannelSummary[]; range: Range }) {
+  fmt,
+}: TooltipContentProps & { channels: ChannelSummary[]; fmt: (t: number) => string }) {
   if (!active || !payload?.length) return null;
   const t = Number(label);
   return (
     <div className="rounded-lg border border-line-strong bg-surface-2/95 px-3 py-2 text-xs shadow-xl backdrop-blur">
-      <div className="mb-1 font-medium text-muted">{range === "24h" ? formatClock(t) : formatDayClock(t)}</div>
+      <div className="mb-1 font-medium text-muted">{fmt(t)}</div>
       {channels.map((c) => {
         const entry = payload.find((p) => p.dataKey === c.channel.id);
         if (!entry) return null;

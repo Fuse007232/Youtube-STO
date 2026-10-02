@@ -4,7 +4,9 @@ import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis, type Tooltip
 import { useDashboardData } from "@/components/dashboard/DashboardDataProvider";
 import { WidgetCard } from "@/components/ui/WidgetCard";
 import type { ChannelConfig } from "@/config/channels";
-import type { ChannelAnalytics } from "@/lib/data/types";
+import type { ChannelAnalytics, TimeRange } from "@/lib/data/types";
+import { totalsFromDaily } from "@/lib/metrics/analytics";
+import { useTimeRange } from "@/components/dashboard/TimeRange";
 import {
   formatCompact,
   formatDuration,
@@ -15,15 +17,23 @@ import {
   formatSigned,
 } from "@/lib/format";
 
+const RANGE_DAYS: Partial<Record<TimeRange, number>> = { "24h": 1, "7d": 7, "28d": 28 };
+
 export function AnalyticsOverviewWidget() {
   const { data } = useDashboardData();
+  const { range } = useTimeRange();
   if (!data.analytics) return null;
   const byId = new Map(data.analytics.map((a) => [a.channelId, a]));
   const lastDay = data.analytics.map((a) => a.lastDay).filter(Boolean).sort().at(-1);
+  // Globaler Zeitraum: 24h = letzter gemeldeter Tag, Gesamt = alle geladenen Tage (bis 40)
+  const maxDays = Math.max(0, ...data.analytics.map((a) => a.daily.length));
+  const days = RANGE_DAYS[range] ?? maxDays;
+  const title =
+    range === "24h" ? "Analytics · letzter Tag" : range === "all" ? `Analytics · letzte ${maxDays} Tage` : `Analytics · letzte ${days} Tage`;
 
   return (
     <WidgetCard
-      title="Analytics · letzte 28 Tage"
+      title={title}
       subtitle={
         lastDay
           ? `Exakte Werte von YouTube Analytics · Stand ${formatIsoDayShort(lastDay)} (1–2 Tage Verzögerung)`
@@ -32,14 +42,22 @@ export function AnalyticsOverviewWidget() {
     >
       <div className="grid gap-4 md:grid-cols-2">
         {data.channels.map((c) => (
-          <ChannelAnalyticsCard key={c.channel.id} channel={c.channel} analytics={byId.get(c.channel.id)} />
+          <ChannelAnalyticsCard key={c.channel.id} channel={c.channel} analytics={byId.get(c.channel.id)} days={days} />
         ))}
       </div>
     </WidgetCard>
   );
 }
 
-function ChannelAnalyticsCard({ channel, analytics }: { channel: ChannelConfig; analytics?: ChannelAnalytics }) {
+function ChannelAnalyticsCard({
+  channel,
+  analytics,
+  days,
+}: {
+  channel: ChannelConfig;
+  analytics?: ChannelAnalytics;
+  days: number;
+}) {
   const header = (
     <div className="mb-3 flex items-center gap-2">
       <span className="h-4 w-1.5 rounded-[2px]" style={{ backgroundColor: channel.color }} aria-hidden />
@@ -59,7 +77,7 @@ function ChannelAnalyticsCard({ channel, analytics }: { channel: ChannelConfig; 
     );
   }
 
-  const t = analytics.totals28d;
+  const t = totalsFromDaily(analytics.daily, days);
   return (
     <div className="rounded-xl border border-line bg-bg/40 p-4">
       {header}
@@ -91,7 +109,7 @@ function ChannelAnalyticsCard({ channel, analytics }: { channel: ChannelConfig; 
             <Kpi label="Ø Wiedergabe" value={formatDuration(t.avgViewSec)} sub="Minuten:Sekunden" />
             <Kpi label="Ø angesehen" value={formatPercentValue(t.avgViewPct)} sub="Zuschauerbindung" />
           </dl>
-          <SubsChart analytics={analytics} color={channel.color} />
+          <SubsChart analytics={analytics} color={channel.color} days={Math.max(7, days)} />
         </>
       )}
     </div>
@@ -108,9 +126,9 @@ function Kpi({ label, value, sub }: { label: string; value: string; sub: string 
   );
 }
 
-/** Abo-Gewinn netto pro Tag (letzte 28 Tage). */
-function SubsChart({ analytics, color }: { analytics: ChannelAnalytics; color: string }) {
-  const rows = analytics.daily.slice(-28).map((d) => ({ day: d.day, net: d.subsGained - d.subsLost }));
+/** Abo-Gewinn netto pro Tag (im Zeitraum, mindestens 7 Tage). */
+function SubsChart({ analytics, color, days }: { analytics: ChannelAnalytics; color: string; days: number }) {
+  const rows = analytics.daily.slice(-days).map((d) => ({ day: d.day, net: d.subsGained - d.subsLost }));
   if (rows.length < 2) return null;
   return (
     <div className="mt-4">

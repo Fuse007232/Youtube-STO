@@ -47,7 +47,7 @@ export function renderRaceReport(data: DashboardData, dayLabel: string) {
   const leader = [...data.channels].sort((a, b) => b.delta24h.views - a.delta24h.views)[0];
   const best = data.topShorts["24h"][0] ?? null;
   const bestChannel = best ? data.channels.find((c) => c.channel.id === best.channelId)?.channel : undefined;
-  const standings = data.standings ? sortStandings(data.standings, "views24h") : [];
+  const standings = data.standings ? sortStandings(data.standings, "views") : [];
   const alerts = (data.alerts ?? []).filter((a) => a.detectedAt >= data.generatedAt - 24 * 3_600_000);
   const radar = (data.rivalRadar ?? []).slice(0, 3);
   const hotComments = data.comments?.hotShorts[0] ?? null;

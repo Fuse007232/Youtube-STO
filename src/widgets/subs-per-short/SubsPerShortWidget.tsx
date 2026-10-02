@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useState } from "react";
 import { useDashboardData } from "@/components/dashboard/DashboardDataProvider";
 import { ChannelCode } from "@/components/ui/ChannelCode";
@@ -9,6 +8,7 @@ import { WidgetCard } from "@/components/ui/WidgetCard";
 import type { AnalyticsShort } from "@/lib/data/types";
 import { formatCompact, formatNumber, formatOneDecimal, formatPercentValue } from "@/lib/format";
 import { ShortLink } from "@/components/ui/ShortLink";
+import { ShortThumb } from "@/components/ui/ShortThumb";
 
 type Sort = "subs" | "rate";
 const LIMIT = 10;
@@ -92,22 +92,18 @@ export function SubsPerShortWidget() {
                         id={s.id}
                         className="flex items-center gap-3 hover:text-ink"
                       >
-                        {s.thumbnailUrl ? (
-                          <Image
-                            src={s.thumbnailUrl}
-                            alt=""
-                            width={22}
-                            height={39}
-                            unoptimized
-                            className="h-[39px] w-[22px] shrink-0 rounded object-cover"
-                          />
-                        ) : (
-                          <span
-                            className="h-[39px] w-[22px] shrink-0 rounded"
-                            style={{ background: `linear-gradient(160deg, ${ch?.color ?? "#555"}, #000 140%)` }}
-                            aria-hidden
-                          />
-                        )}
+                        <ShortThumb
+                          src={s.thumbnailUrl}
+                          color={ch?.color ?? "#555"}
+                          className="h-[39px] w-[22px]"
+                          preview={{
+                            title: s.title,
+                            lines: [
+                              `+${formatNumber(s.subsGained)} Abos in 28 Tagen`,
+                              `${formatCompact(s.views)} Aufrufe · ${formatPercentValue(s.avgViewPct)} angesehen`,
+                            ],
+                          }}
+                        />
                         <span className="min-w-0">
                           <span className="block max-w-[28ch] truncate text-ink sm:max-w-[40ch]" title={s.title}>
                             {s.title}

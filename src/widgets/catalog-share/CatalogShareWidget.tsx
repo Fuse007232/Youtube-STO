@@ -6,6 +6,7 @@ import { WidgetCard } from "@/components/ui/WidgetCard";
 import { RangeNote, useTimeRange } from "@/components/dashboard/TimeRange";
 import { formatAgo, formatCompact, formatShare, formatWindowLabel, noHistoryHint } from "@/lib/format";
 import { ShortLink } from "@/components/ui/ShortLink";
+import { ShortThumb } from "@/components/ui/ShortThumb";
 
 type Win = "24h" | "7d";
 /** Neueste Shorts = volle Kanalfarbe, je älter desto blasser. */
@@ -83,8 +84,14 @@ export function CatalogShareWidget() {
                     <ul className="mt-1 space-y-0.5">
                       {c.evergreens.slice(0, 3).map((e) => (
                         <li key={e.id} className="flex items-center justify-between gap-3 text-xs">
-                          <ShortLink id={e.id} className="min-w-0 truncate text-ink-2 hover:text-ink hover:underline" title={e.title}>
-                            {e.title}
+                          <ShortLink id={e.id} className="flex min-w-0 items-center gap-2 text-ink-2 hover:text-ink" title={e.title}>
+                            <ShortThumb
+                              src={e.thumbnailUrl}
+                              color={channel.color}
+                              className="h-7 w-4"
+                              preview={{ title: e.title, lines: [`+${formatCompact(e.views24h)} in 24h`, `${formatCompact(e.views)} gesamt`] }}
+                            />
+                            <span className="truncate hover:underline">{e.title}</span>
                           </ShortLink>
                           <span className="shrink-0 text-muted">
                             <span className="num font-semibold text-ink">+{formatCompact(e.views24h)}</span> · {formatAgo(e.publishedAt, now)}

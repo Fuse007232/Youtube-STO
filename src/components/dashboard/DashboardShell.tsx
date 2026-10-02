@@ -3,6 +3,7 @@
 import { motion, MotionConfig } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ChannelAvatar } from "@/components/ui/ChannelAvatar";
 import {
   createContext,
   useContext,
@@ -94,11 +95,14 @@ export function DashboardShell({
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   {current ? <RangeSwitch /> : null}
-                  <p className="mx-2 hidden text-xs text-muted 2xl:block">
-                    {initialData.channels
-                      .map((c) => c.channel.name)
-                      .join(" vs. ")}
-                  </p>
+                  <div className="mx-1 hidden items-center gap-2 2xl:flex" title={initialData.channels.map((c) => c.channel.name).join(" vs. ")}>
+                  <span className="flex -space-x-1.5">
+                    {initialData.channels.map((c) => (
+                      <ChannelAvatar key={c.channel.id} channel={c.channel} url={c.avatarUrl} size={22} />
+                    ))}
+                  </span>
+                  <span className="text-xs text-muted">{initialData.channels.map((c) => c.channel.code).join(" vs. ")}</span>
+                </div>
                   <a
                     href="/settings"
                     className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-xs text-muted transition hover:border-line-strong hover:text-ink-2 active:scale-95"

@@ -7,6 +7,7 @@ import { WidgetCard } from "@/components/ui/WidgetCard";
 import type { AlertItem } from "@/lib/data/types";
 import { formatAgo, formatNumber, formatOneDecimal } from "@/lib/format";
 import { ShortLink } from "@/components/ui/ShortLink";
+import { ShortThumb } from "@/components/ui/ShortThumb";
 
 const KIND = {
   rocket: { icon: "🚀", label: "Raketenstart" },
@@ -64,7 +65,14 @@ function RadioItem({
 }) {
   const factor = a.baselineHour && a.baselineHour > 0 ? a.viewsLastHour / a.baselineHour : null;
   return (
-    <ShortLink id={a.videoId} className="block">
+    <ShortLink id={a.videoId} className="flex items-center gap-3">
+      <ShortThumb
+        src={a.thumbnailUrl}
+        color={channel?.color ?? "#555"}
+        className="h-14 w-8"
+        preview={{ title: a.title, lines: [`${formatNumber(a.viewsTotal)} Aufrufe gesamt`, `${formatNumber(a.viewsLastHour)} Aufrufe in der Stunde`] }}
+      />
+      <span className="block min-w-0 flex-1">
       <div className="flex items-center justify-between gap-2 text-[11px] text-muted">
         <span className="inline-flex items-center gap-2">
           <span aria-hidden>{KIND[a.kind].icon}</span>
@@ -93,6 +101,7 @@ function RadioItem({
           <span className="text-muted"> · ✉ gesendet</span>
         ) : null}
       </p>
+      </span>
     </ShortLink>
   );
 }

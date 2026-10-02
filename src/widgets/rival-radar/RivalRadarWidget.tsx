@@ -1,9 +1,8 @@
 "use client";
 
 import { motion } from "motion/react";
+import { useState } from "react";
 import { useDashboardData } from "@/components/dashboard/DashboardDataProvider";
-import { ChannelCode } from "@/components/ui/ChannelCode";
-import { ShortThumb } from "@/components/ui/ShortThumb";
 import { WidgetCard } from "@/components/ui/WidgetCard";
 import { formatAgo, formatCompact, formatOneDecimal } from "@/lib/format";
 import { RADAR } from "@/lib/metrics/radar";
@@ -33,50 +32,51 @@ export function RivalRadarWidget() {
       ) : radar.length === 0 ? (
         <p className="py-8 text-center text-sm text-muted">Ruhige Strecke: Gerade geht bei der Konkurrenz nichts Ungewöhnliches ab.</p>
       ) : (
-        <ol className="divide-y divide-line">
+        <ol className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8">
           {radar.map((r, i) => {
             const ch = channelOf.get(r.channelId);
             const hot = r.factor >= 5;
             return (
               <motion.li
                 key={r.id}
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.05 }}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05, ease: [0.16, 1, 0.3, 1] }}
               >
-                <ShortLink id={r.id} className="flex items-center gap-3 py-2 hover:bg-surface-2/60">
-                  <ShortThumb src={r.thumbnailUrl} color={ch?.color ?? "#555"} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm text-ink" title={r.title}>
-                      {r.title}
-                    </span>
-                    <span className="mt-0.5 flex items-center gap-2 text-[11px] text-muted">
-                      {ch ? <ChannelCode channel={ch} size="sm" /> : null}
-                      <span
-                        className="rounded border border-line px-1 text-[10px] uppercase tracking-wider text-ink-2"
-                        title={
-                          r.kind === "new"
-                            ? "Neu: hat jetzt schon so viele Aufrufe wie ein üblicher Short insgesamt × Faktor"
-                            : "Ausbruch: älterer Short, der in 24 Std. viel mehr holt als üblich"
-                        }
-                      >
-                        {r.kind === "new" ? "neu" : "Ausbruch"}
-                      </span>
-                      <span>{formatAgo(r.publishedAt, now)}</span>
-                      <span className="num">· {formatCompact(r.perHour)}/Std.</span>
-                    </span>
-                  </span>
-                  <span className="shrink-0 text-right">
+                <ShortLink
+                  id={r.id}
+                  className="group relative block overflow-hidden rounded-xl border border-line bg-surface-2 transition duration-300 hover:-translate-y-0.5 hover:border-line-strong hover:shadow-xl hover:shadow-black/40"
+                  title={r.title}
+                >
+                  <span className="relative block" style={{ aspectRatio: "9 / 16" }}>
+                    <RadarImage src={r.thumbnailUrl} color={ch?.color ?? "#555"} />
+                    <span className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" aria-hidden />
+                    <span className="absolute inset-x-0 top-0 h-1" style={{ background: ch?.color ?? "#555" }} aria-hidden />
                     <span
-                      className="num inline-block rounded-md px-1.5 py-0.5 text-xs font-bold text-ink"
+                      className="num absolute left-2 top-2.5 rounded-md px-1.5 py-0.5 text-xs font-bold text-white shadow"
                       style={{
-                        background: `color-mix(in srgb, var(${hot ? "--sector-best" : "--sector-improved"}) 45%, transparent)`,
+                        background: `color-mix(in srgb, var(${hot ? "--sector-best" : "--sector-improved"}) 80%, black)`,
                       }}
-                      title={r.kind === "new" ? "Aufrufe insgesamt im Vergleich zum üblichen Endstand dieses Kanals" : "Aufrufe in 24 Std. im Vergleich zum Üblichen dieses Kanals"}
+                      title={
+                        r.kind === "new"
+                          ? "Aufrufe insgesamt im Vergleich zum üblichen Endstand dieses Kanals"
+                          : "Aufrufe in 24 Std. im Vergleich zum Üblichen dieses Kanals"
+                      }
                     >
                       {formatOneDecimal(r.factor)}×
                     </span>
-                    <span className="num mt-0.5 block text-[11px] text-ink-2">+{formatCompact(r.views24h)}</span>
+                    <span className="absolute right-2 top-2.5 rounded bg-black/60 px-1 text-[9px] font-semibold uppercase tracking-wider text-white/90">
+                      {r.kind === "new" ? "neu" : "Ausbruch"}
+                    </span>
+                    <span className="absolute inset-x-0 bottom-0 p-2.5">
+                      <span className="line-clamp-2 text-xs font-medium leading-snug text-white">{r.title}</span>
+                      <span className="mt-1.5 flex items-center justify-between gap-2 text-[10px] text-white/75">
+                        {ch ? <span className="font-mono font-bold tracking-wider text-white">{ch.code}</span> : <span />}
+                        <span className="num">
+                          +{formatCompact(r.views24h)} · {formatAgo(r.publishedAt, now)}
+                        </span>
+                      </span>
+                    </span>
                   </span>
                 </ShortLink>
               </motion.li>
@@ -85,5 +85,23 @@ export function RivalRadarWidget() {
         </ol>
       )}
     </WidgetCard>
+  );
+}
+
+/** Großes Vorschaubild mit leichtem Zoom beim Drüberfahren; kaputt → Farbverlauf. */
+function RadarImage({ src, color }: { src: string | null; color: string }) {
+  const [broken, setBroken] = useState(false);
+  if (!src || broken) {
+    return <span className="absolute inset-0" style={{ background: `linear-gradient(160deg, ${color}, #000 140%)` }} aria-hidden />;
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt=""
+      loading="lazy"
+      onError={() => setBroken(true)}
+      className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+    />
   );
 }

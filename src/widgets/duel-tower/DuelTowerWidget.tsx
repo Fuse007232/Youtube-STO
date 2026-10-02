@@ -4,6 +4,7 @@ import { motion } from "motion/react";
 import { useDashboardData, useLiveChannels } from "@/components/dashboard/DashboardDataProvider";
 import { AnimatedNumber, type NumberFormat } from "@/components/ui/AnimatedNumber";
 import { LiveDot } from "@/components/ui/LiveDot";
+import { ChannelAvatar } from "@/components/ui/ChannelAvatar";
 import { WidgetCard } from "@/components/ui/WidgetCard";
 import type { ChannelConfig } from "@/config/channels";
 import type { ChannelSummary } from "@/lib/data/types";
@@ -14,6 +15,7 @@ import { useTimeRange } from "@/components/dashboard/TimeRange";
 
 interface Entry {
   channel: ChannelConfig;
+  avatarUrl?: string | null;
   value: number;
   status: SectorStatus;
 }
@@ -31,11 +33,13 @@ export function DuelTowerWidget() {
 
   const views: Entry[] = rows.map(({ summary: s, live }) => ({
     channel: s.channel,
+    avatarUrl: s.avatarUrl,
     value: live.views24h,
     status: sectorStatus(s.delta24h.views, s.prevDelta24h?.views ?? null, s.best24h?.views ?? null),
   }));
   const subs: Entry[] = rows.map(({ summary: s }) => ({
     channel: s.channel,
+    avatarUrl: s.avatarUrl,
     value: s.delta24h.subscribers,
     status: sectorStatus(
       s.delta24h.subscribers,
@@ -45,11 +49,13 @@ export function DuelTowerWidget() {
   }));
   const uploads: Entry[] = rows.map(({ summary: s }) => ({
     channel: s.channel,
+    avatarUrl: s.avatarUrl,
     value: s.delta24h.videos,
     status: sectorStatus(s.delta24h.videos, s.prevDelta24h?.videos ?? null, null),
   }));
   const pace: Entry[] = rows.map(({ summary: s, live }) => ({
     channel: s.channel,
+    avatarUrl: s.avatarUrl,
     value: live.viewsPerHour,
     status: "neutral",
   }));
@@ -217,7 +223,7 @@ export function DuelTowerWidget() {
 }
 
 function neutral(s: ChannelSummary, value: number): Entry {
-  return { channel: s.channel, value, status: "neutral" };
+  return { channel: s.channel, avatarUrl: s.avatarUrl, value, status: "neutral" };
 }
 
 function anyRoundedNote(channels: ChannelSummary[]): string | undefined {
@@ -264,7 +270,7 @@ function TowerSection({
               >
                 {i + 1}
               </span>
-              <span className="h-5 w-1 rounded-[2px]" style={{ backgroundColor: e.channel.color }} aria-hidden />
+              <ChannelAvatar channel={e.channel} url={e.avatarUrl} size={20} />
               <span className="min-w-0 truncate font-mono text-sm font-bold tracking-wider text-ink" title={e.channel.name}>
                 {e.channel.code}
               </span>

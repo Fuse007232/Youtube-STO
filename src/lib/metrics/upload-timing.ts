@@ -251,7 +251,7 @@ export function analyzeTiming(input: {
   scope: string;
   samples: TimingSample[];
   /** Alle Shorts dieses Bereichs (für das Testprotokoll). */
-  recentShorts?: { id: string; title: string; publishedAt: number }[];
+  recentShorts?: { id: string; title: string; publishedAt: number; thumbnailUrl?: string | null }[];
   activity?: ActivityProfile;
   /** Analyse der Konkurrenz (für Test-Vorschläge). */
   competition?: TimingAnalysis | null;
@@ -350,6 +350,7 @@ export function analyzeTiming(input: {
       return {
         videoId: s.id,
         title: s.title,
+        thumbnailUrl: s.thumbnailUrl ?? null,
         publishedAt: s.publishedAt,
         index: sample?.index ?? null,
         source: sample?.source ?? null,

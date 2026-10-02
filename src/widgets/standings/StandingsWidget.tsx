@@ -18,6 +18,8 @@ import {
 } from "@/lib/metrics/standings";
 import { RangeNote, useTimeRange } from "@/components/dashboard/TimeRange";
 import { ShortLink } from "@/components/ui/ShortLink";
+import { ShortThumb } from "@/components/ui/ShortThumb";
+import { ChannelAvatar } from "@/components/ui/ChannelAvatar";
 
 const METRICS: { value: StandingsMetric; label: string; long: string }[] = [
   { value: "views", label: "Aufrufe", long: "Aufrufe im Zeitraum" },
@@ -97,7 +99,7 @@ export function StandingsWidget() {
                     {i + 1}
                   </span>
                   <span className="flex min-w-0 items-center gap-2">
-                    <span className="h-6 w-1.5 shrink-0 rounded-[2px]" style={{ backgroundColor: e.summary.channel.color }} aria-hidden />
+                    <ChannelAvatar channel={e.summary.channel} url={e.summary.avatarUrl} size={24} />
                     <span className="font-mono text-xs font-bold tracking-wider text-ink">{e.summary.channel.code}</span>
                     <span className="truncate text-sm text-ink-2" title={e.summary.channel.name}>
                       {e.summary.channel.name}
@@ -130,11 +132,19 @@ export function StandingsWidget() {
                     {e.bestShort24h ? (
                       <ShortLink
                         id={e.bestShort24h.id}
-                        className="block truncate text-ink-2 hover:text-ink"
+                        className="flex min-w-0 items-center gap-2 text-ink-2 hover:text-ink"
                         title={e.bestShort24h.title}
                       >
-                        <span className="num font-semibold text-ink">+{formatCompact(e.bestShort24h.views24h)}</span>{" "}
-                        {e.bestShort24h.title}
+                        <ShortThumb
+                          src={e.bestShort24h.thumbnailUrl}
+                          color={e.summary.channel.color}
+                          className="h-8 w-[18px]"
+                          preview={{ title: e.bestShort24h.title, lines: [`+${formatNumber(e.bestShort24h.views24h)} Aufrufe in 24h`] }}
+                        />
+                        <span className="min-w-0 truncate">
+                          <span className="num font-semibold text-ink">+{formatCompact(e.bestShort24h.views24h)}</span>{" "}
+                          {e.bestShort24h.title}
+                        </span>
                       </ShortLink>
                     ) : (
                       <span className="text-muted">–</span>

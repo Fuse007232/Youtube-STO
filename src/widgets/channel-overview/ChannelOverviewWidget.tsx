@@ -1,12 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import { Area, AreaChart, ResponsiveContainer, YAxis } from "recharts";
 import {
   useDashboardData,
   useLiveChannel,
 } from "@/components/dashboard/DashboardDataProvider";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
+import { ChannelAvatar } from "@/components/ui/ChannelAvatar";
 import type { ChannelSummary } from "@/lib/data/types";
 import { formatSigned } from "@/lib/format";
 import { channelGain, type ChannelGain } from "@/lib/metrics/range";
@@ -112,25 +112,7 @@ function ChannelCard({
 
       <div className="relative p-5">
         <div className="mb-5 flex items-center gap-3">
-          {summary.avatarUrl ? (
-            <Image
-              src={summary.avatarUrl}
-              alt=""
-              width={44}
-              height={44}
-              unoptimized
-              className="h-11 w-11 rounded-xl object-cover ring-2"
-              style={{ ["--tw-ring-color" as string]: channel.color }}
-            />
-          ) : (
-            <span
-              className="grid h-11 w-11 place-items-center rounded-xl font-mono text-sm font-black text-white"
-              style={{ backgroundColor: channel.color }}
-              aria-hidden
-            >
-              {channel.code}
-            </span>
-          )}
+          <ChannelAvatar channel={channel} url={summary.avatarUrl} size={44} rounded="rounded-xl" />
           <div>
             <h3 className="text-lg font-semibold leading-tight text-ink">
               {channel.name}

@@ -1,7 +1,6 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import Image from "next/image";
 import { useState } from "react";
 import { useDashboardData, useNow } from "@/components/dashboard/DashboardDataProvider";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
@@ -11,9 +10,10 @@ import { WidgetCard } from "@/components/ui/WidgetCard";
 import { APP_CONFIG } from "@/config/app";
 import type { ChannelConfig } from "@/config/channels";
 import type { RankedShort, RankingPeriod } from "@/lib/data/types";
-import { formatAgo, formatCompact, formatDuration, formatWindowLabel, noHistoryHint } from "@/lib/format";
+import { formatAgo, formatCompact, formatDuration, formatNumber, formatWindowLabel, noHistoryHint } from "@/lib/format";
 import { metricFor, rankShorts } from "@/lib/metrics/ranking";
 import { ShortLink } from "@/components/ui/ShortLink";
+import { ShortThumb } from "@/components/ui/ShortThumb";
 import { RangeNote, useTimeRange } from "@/components/dashboard/TimeRange";
 
 const PERIOD_LABEL: Record<RankingPeriod, string> = {
@@ -141,7 +141,18 @@ function ShortRow({
         {position}
       </span>
 
-      <Thumbnail short={short} color={color} />
+      <ShortThumb
+        src={short.thumbnailUrl}
+        color={color}
+        preview={{
+          title: short.title,
+          lines: [
+            `${formatNumber(short.views)} Aufrufe gesamt`,
+            ...(hasHistory ? [`+${formatNumber(short.views24h)} ${windowLabel}`] : []),
+            `${formatNumber(short.likes)} Likes · ${formatDuration(short.durationSec)}`,
+          ],
+        }}
+      />
 
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium text-ink" title={short.title}>
@@ -193,30 +204,5 @@ function ShortRow({
         <div className="flex items-center gap-3 px-1 py-2">{content}</div>
       )}
     </motion.li>
-  );
-}
-
-function Thumbnail({ short, color }: { short: RankedShort; color: string }) {
-  if (short.thumbnailUrl) {
-    return (
-      <Image
-        src={short.thumbnailUrl}
-        alt=""
-        width={27}
-        height={48}
-        unoptimized
-        className="h-12 w-[27px] shrink-0 rounded object-cover"
-      />
-    );
-  }
-  // Platzhalter (Beispieldaten haben keine echten Vorschaubilder).
-  return (
-    <span
-      aria-hidden
-      className="grid h-12 w-[27px] shrink-0 place-items-center rounded text-[10px] text-white/80"
-      style={{ background: `linear-gradient(160deg, ${color}, #000 140%)` }}
-    >
-      ▶
-    </span>
   );
 }

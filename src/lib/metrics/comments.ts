@@ -8,7 +8,10 @@ export function buildCommentPulse(
   limits = { recent: 12, top: 8, hot: 6 },
 ): CommentPulse {
   const byId = new Map(shorts.map((s) => [s.id, s]));
-  const withTitle = (c: CommentItem): CommentItem => ({ ...c, videoTitle: byId.get(c.videoId)?.title ?? c.videoTitle });
+  const withTitle = (c: CommentItem): CommentItem => {
+    const short = byId.get(c.videoId);
+    return { ...c, videoTitle: short?.title ?? c.videoTitle, videoThumbnailUrl: short?.thumbnailUrl ?? null };
+  };
   return {
     recent: [...raw.recent].sort((a, b) => b.publishedAt - a.publishedAt).slice(0, limits.recent).map(withTitle),
     top: [...raw.top].sort((a, b) => b.likes - a.likes).slice(0, limits.top).map(withTitle),

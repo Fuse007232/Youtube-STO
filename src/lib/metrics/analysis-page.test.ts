@@ -143,4 +143,13 @@ describe("Konkurrenz-Radar", () => {
     expect(r[1].factor).toBeCloseTo(3);
     expect(r[0].perHour).toBeCloseTo(400_000 / 12);
   });
+
+  it("beständige Dauerläufer sind kein Ausbruch (ab 3 Tagen Verlauf)", async () => {
+    const { buildRivalRadar } = await import("./radar");
+    const base = Array.from({ length: 10 }, (_, i) => short(`n${i}`, 3 + i, { channelId: "R", views: 100_000, views24h: 10_000, views7d: 70_000 }));
+    const evergreen = short("dauerläufer", 120, { channelId: "R", views24h: 40_000, views7d: 280_000 });
+    const spike = short("ausbruch", 90, { channelId: "R", views24h: 40_000, views7d: 60_000 });
+    const r = buildRivalRadar([...base, evergreen, spike], NOW, 168);
+    expect(r.map((x) => x.id)).toEqual(["ausbruch"]);
+  });
 });

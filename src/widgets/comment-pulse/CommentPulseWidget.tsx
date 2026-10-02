@@ -9,6 +9,7 @@ import type { ChannelConfig } from "@/config/channels";
 import type { CommentItem } from "@/lib/data/types";
 import { formatAgo, formatCompact, formatNumber } from "@/lib/format";
 import { ShortLink } from "@/components/ui/ShortLink";
+import { ShortThumb } from "@/components/ui/ShortThumb";
 
 type Tab = "recent" | "top" | "hot";
 
@@ -31,6 +32,12 @@ export function CommentPulseWidget() {
             <li key={s.id}>
               <ShortLink id={s.id} className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-surface-2/70">
                 <span className="num w-5 text-xs text-muted">{i + 1}</span>
+                <ShortThumb
+                  src={s.thumbnailUrl}
+                  color={ch?.color ?? "#555"}
+                  className="h-10 w-[22px]"
+                  preview={{ title: s.title, lines: [`+${formatNumber(s.comments24h)} Kommentare in 24h`] }}
+                />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm text-ink" title={s.title}>
                     {s.title}
@@ -93,7 +100,16 @@ function CommentList({ items, channelOf }: { items: CommentItem[]; channelOf: Ma
       {items.map((c) => {
         const ch = channelOf.get(c.channelId);
         return (
-          <li key={c.id} className="py-2.5">
+          <li key={c.id} className="flex gap-3 py-2.5">
+            <ShortLink id={c.videoId} className="mt-0.5 shrink-0" aria-label={c.videoTitle ?? "Short"}>
+              <ShortThumb
+                src={c.videoThumbnailUrl ?? null}
+                color={ch?.color ?? "#555"}
+                className="h-10 w-[22px]"
+                preview={c.videoTitle ? { title: c.videoTitle } : undefined}
+              />
+            </ShortLink>
+            <div className="min-w-0 flex-1">
             <div className="flex items-baseline justify-between gap-3 text-[11px] text-muted">
               <span className="truncate text-ink-2">{c.author}</span>
               <span className="shrink-0">{formatAgo(c.publishedAt, now)}</span>
@@ -108,6 +124,7 @@ function CommentList({ items, channelOf }: { items: CommentItem[]; channelOf: Ma
                 ♥ {formatCompact(c.likes)}
                 {c.replies > 0 ? ` · ${c.replies} Antw.` : ""}
               </span>
+            </div>
             </div>
           </li>
         );

@@ -275,6 +275,7 @@ export interface TimingExperiment {
 export interface TimingRecent {
   videoId: string;
   title: string;
+  thumbnailUrl?: string | null;
   publishedAt: number;
   index: number | null;
   source: SampleSource | null;
@@ -382,8 +383,9 @@ export interface CommentItem {
   likes: number;
   replies: number;
   publishedAt: number;
-  /** Titel des Shorts (für Listen; im Dashboard ergänzt). */
+  /** Titel und Vorschaubild des Shorts (für Listen; im Dashboard ergänzt). */
   videoTitle?: string;
+  videoThumbnailUrl?: string | null;
 }
 
 /** Konkurrenz-Radar: ein Konkurrenz-Short, der gerade ungewöhnlich abgeht (Phase 7). */

@@ -1,6 +1,6 @@
 # Projektplan: YouTube-Shorts-Dashboard
 
-> Stand: Phase 7 (Feinschliff) fertig (01.10.2026). Davor: Phase 6 fertig (01.10.2026) – Alarm per E-Mail ✅, Konkurrenz-Vergleich ✅ (4 Konkurrenten eingetragen), beste Upload-Uhrzeit („Boxenstrategie“) ✅. Die Boxenstrategie wird mit jedem Tag genauer (siehe 6.2 „Ergebnis“).
+> Stand: Phase 8 (Schönheit & Bedienung) fertig (02.10.2026). Phase 7 (Feinschliff) fertig (01.10.2026). Davor: Phase 6 fertig (01.10.2026) – Alarm per E-Mail ✅, Konkurrenz-Vergleich ✅ (4 Konkurrenten eingetragen), beste Upload-Uhrzeit („Boxenstrategie“) ✅. Die Boxenstrategie wird mit jedem Tag genauer (siehe 6.2 „Ergebnis“).
 > Dieses Dokument wird nach jeder Phase aktualisiert (Status-Tabelle unten).
 
 ---
@@ -32,7 +32,7 @@ YouTube hat keine Echtzeit-Schnittstelle. Deshalb holt ein Hintergrund-Job alle 
 | 5 | OAuth-Login + YouTube Analytics API | ✅ fertig (beide Kanäle verbunden) |
 | 6 | Extras (Alarm, beste Upload-Zeit, Konkurrenz) | ✅ fertig |
 | 7 | Feinschliff: Seiten Rennen/Analyse, Short-Länge, Langzeit-Anteil, Upload-Kalender, Short-Steckbrief, Kommentar-Puls, Konkurrenz-Radar, Rennbericht, Wächter | ✅ fertig (01.10.2026) |
-| 8 | Schönheit: 4 Bereiche + Handy-Leiste, Seitenübergänge, globaler Zeitraum, Bilder + Vorschau, Hover-Effekte, Skelette, App-Symbol | 🔄 läuft |
+| 8 | Schönheit: 4 Bereiche + Handy-Leiste, Seitenübergänge, globaler Zeitraum, Bilder + Vorschau, Hover-Effekte, Skelette, App-Symbol | ✅ fertig (02.10.2026) |
 
 ---
 
@@ -455,6 +455,12 @@ Erste echte Auswertung: **BRV – „Teste mehr um 14–16 Uhr“, +49 % gegenü
 7. **App-Symbol**: eigenes F1-Icon + Web-App-Manifest → „Zum Startbildschirm hinzufügen“ öffnet das Dashboard wie eine App.
 
 **Wo ich dich brauche:** nirgends.
+
+**Ergebnis (02.10.2026):** Alles gebaut wie geplant, je Schritt ein Commit; 189 Tests.
+- Bereiche wechseln ohne Neuladen (geprüft am Computer und Handy, auch Steckbrief hin und zurück).
+- Zeitraum „28 Tage“ zeigt sofort echte Analytics-Zahlen (Kanäle, Duell, Rennverlauf pro Tag, Top Shorts).
+- Konkurrenz-Radar nachgeschärft: Ausbruch nur bei plötzlichem Zuwachs (ab 3 Tagen Verlauf), Vergleich mit allen älteren Shorts des Kanals.
+- App-Symbol: dunkle Kachel, kursives „LT“, rotes Live-Licht, Ziellinien-Karo.
 
 ---
 

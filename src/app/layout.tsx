@@ -16,11 +16,14 @@ export const metadata: Metadata = {
   title: "Shorts Live Timing",
   description: "Privates Dashboard für Bra1nrotvault und Granny Aura",
   robots: { index: false, follow: false },
+  appleWebApp: { capable: true, title: "Live Timing", statusBarStyle: "black-translucent" },
 };
 
 export const viewport: Viewport = {
   themeColor: "#08080b",
   colorScheme: "dark",
+  // Ganze Fläche nutzen (iPhone-Notch/Home-Leiste werden über env(safe-area-inset-*) freigehalten)
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

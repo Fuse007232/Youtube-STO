@@ -3,7 +3,7 @@ import { SESSION_COOKIE, isRequestAllowed } from "@/lib/auth/session";
 
 /**
  * Türsteher für das ganze Dashboard: ohne gültige Anmeldung geht es zur Login-Seite.
- * Ausgenommen (siehe matcher): Login/Logout, die öffentliche Datenschutzerklärung, der Zeitplaner-Endpunkt (eigenes Geheimwort)
+ * Ausgenommen (siehe matcher): Login/Logout, App-Symbol + Manifest, die öffentliche Datenschutzerklärung, der Zeitplaner-Endpunkt (eigenes Geheimwort)
  * und statische Dateien. Der Google-Login (/api/auth/youtube/*) ist NICHT ausgenommen.
  */
 export function proxy(request: NextRequest) {
@@ -21,6 +21,6 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|login|datenschutz|api/auth/login|api/auth/logout|api/cron/).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icon|apple-icon|manifest.webmanifest|login|datenschutz|api/auth/login|api/auth/logout|api/cron/).*)",
   ],
 };

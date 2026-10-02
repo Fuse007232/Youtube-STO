@@ -73,7 +73,7 @@ export function DashboardShell({
       <DashboardDataProvider initialData={initialData}>
         <TimeRangeProvider>
           <LastPageContext.Provider value={lastPage}>
-            <div className="mx-auto max-w-[1440px] px-4 pb-28 pt-5 sm:px-6 md:pb-16 lg:px-8">
+            <div className="mx-auto max-w-[1440px] px-4 pb-28 pt-[max(1.25rem,env(safe-area-inset-top))] sm:px-6 md:pb-16 lg:px-8">
               <header
                 className="mb-5 flex flex-wrap items-end justify-between gap-4"
                 style={{ viewTransitionName: "site-header" }}

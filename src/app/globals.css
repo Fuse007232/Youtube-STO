@@ -155,3 +155,110 @@ body {
     animation-delay: 0s !important;
   }
 }
+
+/* Spotlight: Lichtschein folgt der Maus (nur Geräte mit Maus) */
+.card-spotlight::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  background: radial-gradient(
+    420px circle at var(--mx, 50%) var(--my, 0%),
+    rgba(255, 255, 255, 0.045),
+    transparent 60%
+  );
+}
+@media (hover: hover) and (pointer: fine) {
+  .card-spotlight:hover::before {
+    opacity: 1;
+  }
+}
+
+/* Schmale, dunkle Scrollbalken */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-3) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--surface-3);
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Tastatur-Fokus gut sichtbar (Maus-Klicks ohne Rahmen) */
+:focus-visible {
+  outline: 2px solid var(--live);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+::selection {
+  background: rgba(225, 6, 0, 0.35);
+  color: #fff;
+}
+
+/* Lade-Skelett: schimmernder Platzhalter */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+@keyframes shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* Startampel: die fünf Lichter gehen nacheinander an, dann alle aus („Lights out“) */
+.start-light {
+  background: var(--surface-3);
+  animation-duration: 3s;
+  animation-iteration-count: infinite;
+  animation-timing-function: steps(1, end);
+}
+.start-light-0 { animation-name: start-light-0; }
+@keyframes start-light-0 {
+  0% { background: var(--surface-3); box-shadow: none; }
+  10% { background: var(--live); box-shadow: 0 0 12px rgba(225, 6, 0, 0.7); }
+  85% { background: var(--surface-3); box-shadow: none; }
+}
+.start-light-1 { animation-name: start-light-1; }
+@keyframes start-light-1 {
+  0% { background: var(--surface-3); box-shadow: none; }
+  24% { background: var(--live); box-shadow: 0 0 12px rgba(225, 6, 0, 0.7); }
+  85% { background: var(--surface-3); box-shadow: none; }
+}
+.start-light-2 { animation-name: start-light-2; }
+@keyframes start-light-2 {
+  0% { background: var(--surface-3); box-shadow: none; }
+  38% { background: var(--live); box-shadow: 0 0 12px rgba(225, 6, 0, 0.7); }
+  85% { background: var(--surface-3); box-shadow: none; }
+}
+.start-light-3 { animation-name: start-light-3; }
+@keyframes start-light-3 {
+  0% { background: var(--surface-3); box-shadow: none; }
+  52% { background: var(--live); box-shadow: 0 0 12px rgba(225, 6, 0, 0.7); }
+  85% { background: var(--surface-3); box-shadow: none; }
+}
+.start-light-4 { animation-name: start-light-4; }
+@keyframes start-light-4 {
+  0% { background: var(--surface-3); box-shadow: none; }
+  66% { background: var(--live); box-shadow: 0 0 12px rgba(225, 6, 0, 0.7); }
+  85% { background: var(--surface-3); box-shadow: none; }
+}

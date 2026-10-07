@@ -4,6 +4,8 @@ import { getDataSource } from "@/lib/data";
 import { SupabaseStore } from "@/lib/db/SupabaseStore";
 import { runDailyReportIfDue } from "@/lib/report/run-report";
 import { runWatchdog } from "@/lib/watchdog/run-watchdog";
+import { runProductionReminderIfDue } from "@/lib/tracker/run-reminder";
+import { loadTrackerView } from "@/lib/tracker/server";
 import { getSupabase } from "@/lib/db/supabase";
 import { runAlerts } from "@/lib/alerts/run-alerts";
 import { runAnalyticsIfDue } from "@/lib/analytics/run-analytics";
@@ -76,8 +78,12 @@ async function handle(req: Request): Promise<Response> {
     const report = await runDailyReportIfDue({ store, getData: () => getDataSource().getDashboard() }).catch((e) => ({
       error: String(e),
     }));
+    // Produktions-Erinnerung (ab 18 Uhr, höchstens 1× täglich, nur wenn heute noch was fehlt).
+    const reminder = await runProductionReminderIfDue({ store, loadView: () => loadTrackerView(store) }).catch((e) => ({
+      error: String(e),
+    }));
     return Response.json(
-      { ...result, analytics, alerts, comments, watchdog, report },
+      { ...result, analytics, alerts, comments, watchdog, report, reminder },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (e) {

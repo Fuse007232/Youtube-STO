@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/icons";
 import type { DashboardData } from "@/lib/data/types";
 import type { DashboardPageId } from "@/widgets/types";
-import { DashboardDataProvider } from "./DashboardDataProvider";
+import { DashboardDataProvider, useDashboardData } from "./DashboardDataProvider";
 import { RangeSwitch, TimeRangeProvider } from "./TimeRange";
 import { DASHBOARD_PAGES, pageForPath, pageIndex } from "./pages";
 
@@ -172,6 +172,7 @@ function TopNav({ current }: { current: DashboardPageId | null }) {
             ) : null}
             <Icon className="relative h-3.5 w-3.5" />
             <span className="relative">{p.label}</span>
+            {p.id === "production" ? <ProductionBadge className="relative ml-0.5" /> : null}
             {p.id === "race" ? (
               <span
                 className="live-dot relative ml-0.5 h-1.5 w-1.5 rounded-full bg-live"
@@ -215,12 +216,31 @@ function BottomNav({ current }: { current: DashboardPageId | null }) {
                   aria-hidden
                 />
               ) : null}
-              <Icon className="h-5 w-5" />
+              <span className="relative">
+                <Icon className="h-5 w-5" />
+                {p.id === "production" ? <ProductionBadge className="absolute -right-2.5 -top-1.5" /> : null}
+              </span>
               {p.label}
             </Link>
           );
         })}
       </div>
     </nav>
+  );
+}
+
+/** Rote Zahl am Reiter „Produktion“: so viele Shorts fehlen heute noch (weder online noch fertig). */
+function ProductionBadge({ className = "" }: { className?: string }) {
+  const { data } = useDashboardData();
+  const open = (data.production ?? []).reduce((sum, p) => sum + p.todayOpen, 0);
+  if (open === 0) return null;
+  return (
+    <span
+      className={`num grid h-4 min-w-4 place-items-center rounded-full bg-live px-1 text-[9px] font-bold leading-none text-white shadow ${className}`}
+      title={`Heute fehlen noch ${open} Short${open === 1 ? "" : "s"}`}
+      aria-label={`Heute fehlen noch ${open}`}
+    >
+      {open}
+    </span>
   );
 }

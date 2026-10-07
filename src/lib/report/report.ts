@@ -56,6 +56,12 @@ export function renderRaceReport(data: DashboardData, dayLabel: string) {
     .map((t) => ({ name: data.channels.find((c) => c.channel.id === t.scope)?.channel.code ?? "?", line: timingLine(t) }))
     .filter((t): t is { name: string; line: string } => t.line !== null);
 
+  const production = (data.production ?? [])
+    .map((p) => ({ p, channel: data.channels.find((c) => c.channel.id === p.channelId)?.channel }))
+    .filter((x) => x.channel && x.p.target > 0);
+  const productionLine = ({ p }: (typeof production)[number]) =>
+    `Vorlauf ${p.bufferDays > 30 ? "30+" : p.bufferDays} ${p.bufferDays === 1 ? "Tag" : "Tage"} · heute ${p.todayOnline}/${p.target} online${p.todayReady ? `, ${p.todayReady} fertig` : ""} · ${p.readyCount} auf Halde · Woche ${p.weekOnline}/${p.weekTarget}`;
+
   const subject = leader
     ? `🏁 Rennbericht ${dayLabel}: ${leader.channel.code} vorn mit +${formatCompact(leader.delta24h.views)} Aufrufen`
     : `🏁 Rennbericht ${dayLabel}`;
@@ -79,6 +85,7 @@ export function renderRaceReport(data: DashboardData, dayLabel: string) {
     radar.forEach((r) => text.push(`  ${formatFactor(r.factor)} „${r.title}“ – ${url}/short/${r.id}`));
   }
   if (timing.length) text.push("", "Boxenstrategie:", ...timing.map((t) => `  ${t.name}: ${t.line}`));
+  if (production.length) text.push("", "Boxengasse (Produktion):", ...production.map((x) => `  ${x.channel!.code}: ${productionLine(x)}`));
   text.push("", `Dashboard: ${url}`);
 
   // ── HTML ──
@@ -143,6 +150,20 @@ ${
                 `<div style="font-size:14px;margin:4px 0"><b>${formatFactor(r.factor)}</b> <a href="${url}/short/${encodeURIComponent(r.id)}" style="color:#111">${escape(r.title)}</a></div>`,
             )
             .join(""),
+      )
+    : ""
+}
+${
+  production.length
+    ? card(
+        h3("Boxengasse · Produktion") +
+          production
+            .map(
+              (x) =>
+                `<div style="display:flex;gap:8px;font-size:14px;margin:4px 0;align-items:center"><span style="display:inline-block;width:4px;height:18px;background:${x.channel!.color};border-radius:2px"></span><span><b>${escape(x.channel!.code)}</b> ${escape(productionLine(x))}</span></div>`,
+            )
+            .join("") +
+          `<div style="font-size:12px;margin-top:6px"><a href="${url}/produktion" style="color:#6b7280">Produktionsplan öffnen →</a></div>`,
       )
     : ""
 }

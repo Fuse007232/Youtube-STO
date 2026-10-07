@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ProductionItem, PublishedShort } from "@/lib/data/types";
-import { buildTracker, nextStatus } from "./production";
+import { buildTracker, nextStatus, reminderLines } from "./production";
 
 const NOW = Date.UTC(2026, 9, 7, 10, 0); // Mi 07.10.2026, 12:00 Berlin
 let nextId = 1;
@@ -92,5 +92,31 @@ describe("nextStatus", () => {
     expect(nextStatus("idea")).toBe("produced");
     expect(nextStatus("produced")).toBe("scheduled");
     expect(nextStatus("scheduled")).toBeNull();
+  });
+});
+
+describe("18-Uhr-Erinnerung", () => {
+  it("meldet fehlende und noch nicht hochgeladene Shorts, eingeplante zählen als erledigt", () => {
+    const v = buildTracker({
+      channelIds: ["A", "B", "C", "D"],
+      items: [
+        item("B", "2026-10-07", "produced"),
+        item("C", "2026-10-07", "scheduled"),
+        item("D", "2026-10-07", "idea", "nur Idee"),
+      ],
+      published: [short("A", "2026-10-07T08:00:00Z")],
+      targets: { A: 2, B: 1, C: 1, D: 1 },
+      now: NOW,
+    });
+    expect(reminderLines(v)).toEqual([
+      { channelId: "A", target: 2, missing: 1, toUpload: 0 },
+      { channelId: "B", target: 1, missing: 0, toUpload: 1 },
+      { channelId: "D", target: 1, missing: 1, toUpload: 0 },
+    ]);
+  });
+
+  it("Tagesziel 0 = Pause, keine Meldung", () => {
+    const v = buildTracker({ channelIds: ["A"], items: [], published: [], targets: { A: 0 }, now: NOW });
+    expect(reminderLines(v)).toEqual([]);
   });
 });

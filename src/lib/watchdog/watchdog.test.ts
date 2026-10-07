@@ -94,6 +94,8 @@ describe("Rennbericht", () => {
     expect(msg.text).toContain("Bester Short");
     expect(msg.text).toContain("Fahrerwertung");
     expect(msg.text).toContain("Boxenstrategie");
+    expect(msg.text).toContain("Boxengasse (Produktion)");
+    expect(msg.html).toContain("/produktion");
     expect(msg.html).toContain("/short/");
     expect(msg.html).not.toContain("<script");
   });

@@ -7,6 +7,7 @@ import { WidgetCard } from "@/components/ui/WidgetCard";
 import { formatAgo, formatCompact, formatFactor, formatOneDecimal } from "@/lib/format";
 import { RADAR } from "@/lib/metrics/radar";
 import { ShortLink } from "@/components/ui/ShortLink";
+import { SaveIdeaButton } from "@/components/production/SaveIdeaButton";
 
 /** Konkurrenz-Radar: Was geht bei der Konkurrenz gerade ab? */
 export function RivalRadarWidget() {
@@ -16,6 +17,8 @@ export function RivalRadarWidget() {
   const rivals = (data.standings ?? []).filter((e) => !e.isOwn).map((e) => e.summary.channel);
   const channelOf = new Map(rivals.map((c) => [c.id, c]));
   const now = data.generatedAt;
+  // „Merken“ nur, wenn es einen Produktionsplan gibt (Datenbank/Beispieldaten)
+  const canSave = data.production !== null;
 
   return (
     <WidgetCard
@@ -79,6 +82,7 @@ export function RivalRadarWidget() {
                     </span>
                   </span>
                 </ShortLink>
+                {canSave ? <SaveIdeaButton videoId={r.id} title={r.title} /> : null}
               </motion.li>
             );
           })}

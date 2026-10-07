@@ -183,3 +183,30 @@ export function buildTracker(input: {
     summary,
   };
 }
+
+export interface ReminderLine {
+  channelId: string;
+  target: number;
+  /** Heute fehlt noch komplett (weder online noch produziert/eingeplant). */
+  missing: number;
+  /** Fertig produziert, aber weder eingeplant noch online. */
+  toUpload: number;
+}
+
+/**
+ * 18-Uhr-Erinnerung: Für welchen Kanal ist heute noch etwas zu tun?
+ * „Eingeplant“ zählt als erledigt (liegt schon bei YouTube bereit).
+ */
+export function reminderLines(view: TrackerView): ReminderLine[] {
+  const today = view.days.find((d) => d.isToday);
+  if (!today) return [];
+  return today.cells
+    .map((c) => {
+      const count = (s: SlotState) => c.slots.filter((x) => x.state === s).length;
+      const done = count("online") + count("scheduled");
+      const produced = count("produced");
+      const open = Math.max(0, c.target - done);
+      return { channelId: c.channelId, target: c.target, missing: Math.max(0, open - produced), toUpload: Math.min(open, produced) };
+    })
+    .filter((l) => l.target > 0 && (l.missing > 0 || l.toUpload > 0));
+}

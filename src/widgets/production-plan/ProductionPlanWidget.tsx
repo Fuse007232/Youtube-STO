@@ -219,7 +219,9 @@ function Cell({
         >
           +
         </button>
-      ) : null}
+      ) : (
+        <span className="hidden w-6 shrink-0 sm:block" aria-hidden />
+      )}
     </div>
   );
 }

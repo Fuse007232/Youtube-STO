@@ -33,7 +33,7 @@ YouTube hat keine Echtzeit-Schnittstelle. Deshalb holt ein Hintergrund-Job alle 
 | 6 | Extras (Alarm, beste Upload-Zeit, Konkurrenz) | ✅ fertig |
 | 7 | Feinschliff: Seiten Rennen/Analyse, Short-Länge, Langzeit-Anteil, Upload-Kalender, Short-Steckbrief, Kommentar-Puls, Konkurrenz-Radar, Rennbericht, Wächter | ✅ fertig (01.10.2026) |
 | 8 | Schönheit: 4 Bereiche + Handy-Leiste, Seitenübergänge, globaler Zeitraum, Bilder + Vorschau, Hover-Effekte, Skelette, App-Symbol | ✅ fertig (02.10.2026) |
-| 9 | Produktion: Tages-Tracker (gemacht / vorproduziert / eingeplant / online), Ideen-Parkplatz, Vorlauf, Erinnerungen | 🔄 läuft |
+| 9 | Produktion: Tages-Tracker (gemacht / vorproduziert / eingeplant / online), Ideen-Parkplatz, Vorlauf, Erinnerungen | ✅ fertig |
 
 ---
 
@@ -495,6 +495,13 @@ Erste echte Auswertung: **BRV – „Teste mehr um 14–16 Uhr“, +49 % gegenü
 - Widgets `production-plan` (volle Breite) und `idea-parking` im neuen Bereich `/produktion`.
 
 **Wo ich dich brauche:** nirgends.
+
+**Ergebnis (07.10.2026):** Alles gebaut wie geplant, je Schritt ein Commit; 203 Tests. Abweichungen/Ergänzungen:
+- Layout: Tage untereinander, je Kanal eine Spalte (passt auch aufs Handy ohne Seitwärts-Scrollen). Oben „Vorlauf“ (je Kanal: Vorlauf-Ampel, heute, Woche, Halde, Tagesziel −/+, Upload-Tipp), darunter Plan (2/3) und Ideen-Parkplatz (1/3).
+- Änderungen erscheinen sofort und werden im Hintergrund der Reihe nach gespeichert; bei einem Fehler zeigt „Vorlauf“ die Meldung und der Plan springt auf den gespeicherten Stand zurück.
+- Weitere Shorts pro Tag: „+“ neben dem Feld (Computer) bzw. „+ Short“ in der Tageszeile (Handy). „…“ öffnet das Bearbeiten-Fenster (Titel, Status, Tag, Kanal, Notiz, Link, Löschen).
+- 18-Uhr-Erinnerung: eine gemeinsame Mail für beide Kanäle (statt je Kanal), nur wenn heute noch etwas fehlt oder fertig, aber nicht eingeplant ist. „Eingeplant“ zählt als erledigt.
+- Tagesziel 0 = Pause (keine „verpasst“-Felder, keine Erinnerung).
 
 ---
 

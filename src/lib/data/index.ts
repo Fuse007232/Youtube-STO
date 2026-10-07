@@ -48,6 +48,7 @@ export function getDataSource(): DataSource {
         timingCache,
         shorts: store,
         comments: store,
+        tracker: store,
       });
     }
     case "youtube": {

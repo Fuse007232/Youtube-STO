@@ -9,7 +9,9 @@ import type {
   DashboardReader,
   ShortStore,
   TimingStore,
+  TrackerStore,
 } from "@/lib/db/store";
+import { addDays, berlinDay } from "@/lib/metrics/calendar";
 import { analyticsShortFrom } from "@/lib/analytics/build";
 import { channelRank, shortTiming } from "@/lib/metrics/short-detail";
 import { buildTimingSamples } from "@/lib/metrics/upload-timing";
@@ -58,6 +60,8 @@ export interface DatabaseSourceOptions {
   shorts?: ShortStore;
   /** Kommentare lesen (Phase 7). Fehlt es, gibt es keinen Kommentar-Puls. */
   comments?: Pick<CommentStore, "getRecentComments" | "getTopComments" | "getVideoComments" | "getCommentGains">;
+  /** Produktion lesen (Phase 9). Fehlt es, gibt es keine Produktions-Kurzfassung. */
+  tracker?: Pick<TrackerStore, "listProductionItems" | "getProductionTargets">;
 }
 
 type TimingRaw = { firstDay: FirstDayRow[]; activity: Map<string, ActivityProfile> };
@@ -107,7 +111,7 @@ export class DatabaseDataSource implements DataSource {
 
     const rivals = await this.loadRivals(now);
 
-    const [analyticsData, alerts, timing, comments] = await Promise.all([
+    const [analyticsData, alerts, timing, comments, production] = await Promise.all([
       this.opts.analytics ? this.loadAnalytics(ids, rankings, now) : Promise.resolve(null),
       this.opts.alerts
         ? this.opts.alerts.getRecentAlerts(now - 7 * 24 * HOUR_MS, 20).catch((e) => {
@@ -117,6 +121,7 @@ export class DatabaseDataSource implements DataSource {
         : Promise.resolve(null),
       this.loadTiming(now, lastSnapshotAt),
       this.loadComments(ids, now),
+      this.loadProduction(now),
     ]);
 
     return buildDashboard({
@@ -140,7 +145,25 @@ export class DatabaseDataSource implements DataSource {
       rivalShorts: rivals ? rankings.filter((s) => rivals.ids.has(s.channelId)) : undefined,
       timing,
       comments,
+      production,
     });
+  }
+
+  /** Produktions-Einträge (eine Woche zurück bis ein Monat voraus) + Tagesziele. */
+  private async loadProduction(now: number) {
+    const store = this.opts.tracker;
+    if (!store) return null;
+    try {
+      const today = berlinDay(now);
+      const [items, targets] = await Promise.all([
+        store.listProductionItems(addDays(today, -7), addDays(today, 31)),
+        store.getProductionTargets(),
+      ]);
+      return { items, targets };
+    } catch (e) {
+      console.error("[production] Lesen fehlgeschlagen:", e);
+      return null;
+    }
   }
 
   /** Kommentar-Puls laden. Fehler legen das Dashboard nicht lahm. */

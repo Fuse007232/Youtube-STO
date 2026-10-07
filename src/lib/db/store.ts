@@ -5,6 +5,9 @@ import type {
   AnalyticsDay,
   ChannelPoint,
   CommentItem,
+  ProductionItem,
+  ProductionStatus,
+  PublishedShort,
   RankedShort,
   ShortHistoryPoint,
 } from "@/lib/data/types";
@@ -253,6 +256,30 @@ export interface NotificationStore {
   getRecentNotifications(limit: number): Promise<NotificationRow[]>;
   /** Eigene Shorts, die seit `since` verschwunden sind (SQL `removed_own_videos`). */
   getRemovedOwnVideos(since: number): Promise<RemovedVideoRow[]>;
+}
+
+/** Produktion („Boxengasse“, Phase 9). */
+export interface ProductionItemInput {
+  channelId: string;
+  day: string | null;
+  title?: string;
+  status?: ProductionStatus;
+  note?: string;
+  link?: string | null;
+}
+export type ProductionItemPatch = Partial<Omit<ProductionItemInput, "channelId">> & { channelId?: string };
+
+export interface TrackerStore {
+  /** Einträge mit Tag zwischen from und to (YYYY-MM-DD, einschließlich) + alle Ideen ohne Tag. */
+  listProductionItems(fromDay: string, toDay: string): Promise<ProductionItem[]>;
+  createProductionItem(input: ProductionItemInput, at: number): Promise<ProductionItem>;
+  updateProductionItem(id: number, patch: ProductionItemPatch, at: number): Promise<ProductionItem | null>;
+  deleteProductionItem(id: number): Promise<void>;
+  /** Tagesziel je Kanal (fehlt ein Kanal → Standard). */
+  getProductionTargets(): Promise<Record<string, number>>;
+  setProductionTarget(channelId: string, perDay: number, at: number): Promise<void>;
+  /** Eigene Shorts, veröffentlicht zwischen from und to (ms). */
+  getPublishedOwn(from: number, to: number): Promise<PublishedShort[]>;
 }
 
 /** Lesen (Dashboard). */

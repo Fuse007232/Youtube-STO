@@ -5,6 +5,8 @@ import type {
   AnalyticsDay,
   ChannelPoint,
   CommentItem,
+  ProductionItem,
+  PublishedShort,
   RankedShort,
   ShortHistoryPoint,
 } from "@/lib/data/types";
@@ -24,6 +26,8 @@ import type {
   CommentStore,
   NotificationRow,
   NotificationStore,
+  ProductionItemInput,
+  ProductionItemPatch,
   RemovedVideoRow,
   CompetitorStore,
   DashboardReader,
@@ -34,6 +38,7 @@ import type {
   ShortStore,
   SnapshotStore,
   TimingStore,
+  TrackerStore,
   VideoRow,
   VideoSnapshotRow,
   VideoState,
@@ -57,7 +62,7 @@ async function inBatches<T>(rows: T[], fn: (batch: T[]) => Promise<void>): Promi
 }
 
 export class SupabaseStore
-  implements SnapshotStore, DashboardReader, AnalyticsStore, AlertStore, CompetitorStore, TimingStore, ShortStore, CommentStore, NotificationStore
+  implements SnapshotStore, DashboardReader, AnalyticsStore, AlertStore, CompetitorStore, TimingStore, ShortStore, CommentStore, NotificationStore, TrackerStore
 {
   constructor(private readonly db: SupabaseClient) {}
 
@@ -785,6 +790,109 @@ export class SupabaseStore
       channelId: String(r.channel_id),
       title: String(r.title ?? ""),
       removedAt: Date.parse(String(r.removed_at)),
+      views: Number(r.views ?? 0),
+    }));
+  }
+
+  // ───────────── Produktion (Phase 9) ─────────────
+
+  private static readonly ITEM_FIELDS = "id, channel_id, day, title, status, note, link, created_at";
+
+  private static toItem(r: Record<string, unknown>): ProductionItem {
+    return {
+      id: Number(r.id),
+      channelId: String(r.channel_id),
+      day: (r.day as string | null) ?? null,
+      title: String(r.title ?? ""),
+      status: r.status as ProductionItem["status"],
+      note: String(r.note ?? ""),
+      link: (r.link as string | null) ?? null,
+      createdAt: Date.parse(String(r.created_at)),
+    };
+  }
+
+  async listProductionItems(fromDay: string, toDay: string): Promise<ProductionItem[]> {
+    const { data, error } = await this.db
+      .from("production_items")
+      .select(SupabaseStore.ITEM_FIELDS)
+      .or(`day.is.null,and(day.gte.${fromDay},day.lte.${toDay})`)
+      .order("created_at")
+      .limit(2000);
+    check(error, "Produktion lesen");
+    return (data ?? []).map((r) => SupabaseStore.toItem(r));
+  }
+
+  async createProductionItem(input: ProductionItemInput, at: number): Promise<ProductionItem> {
+    const { data, error } = await this.db
+      .from("production_items")
+      .insert({
+        channel_id: input.channelId,
+        day: input.day,
+        title: input.title ?? "",
+        status: input.status ?? "idea",
+        note: input.note ?? "",
+        link: input.link ?? null,
+        created_at: iso(at),
+        updated_at: iso(at),
+      })
+      .select(SupabaseStore.ITEM_FIELDS)
+      .single();
+    check(error, "Eintrag anlegen");
+    return SupabaseStore.toItem(data as Record<string, unknown>);
+  }
+
+  async updateProductionItem(id: number, patch: ProductionItemPatch, at: number): Promise<ProductionItem | null> {
+    const row: Record<string, unknown> = { updated_at: iso(at) };
+    if (patch.channelId !== undefined) row.channel_id = patch.channelId;
+    if (patch.day !== undefined) row.day = patch.day;
+    if (patch.title !== undefined) row.title = patch.title;
+    if (patch.status !== undefined) row.status = patch.status;
+    if (patch.note !== undefined) row.note = patch.note;
+    if (patch.link !== undefined) row.link = patch.link;
+    const { data, error } = await this.db
+      .from("production_items")
+      .update(row)
+      .eq("id", id)
+      .select(SupabaseStore.ITEM_FIELDS)
+      .maybeSingle();
+    check(error, "Eintrag ändern");
+    return data ? SupabaseStore.toItem(data as Record<string, unknown>) : null;
+  }
+
+  async deleteProductionItem(id: number): Promise<void> {
+    const { error } = await this.db.from("production_items").delete().eq("id", id);
+    check(error, "Eintrag löschen");
+  }
+
+  async getProductionTargets(): Promise<Record<string, number>> {
+    const { data, error } = await this.db.from("production_targets").select("channel_id, per_day");
+    check(error, "Tagesziele lesen");
+    return Object.fromEntries((data ?? []).map((r) => [r.channel_id, Number(r.per_day)]));
+  }
+
+  async setProductionTarget(channelId: string, perDay: number, at: number): Promise<void> {
+    const { error } = await this.db
+      .from("production_targets")
+      .upsert({ channel_id: channelId, per_day: perDay, updated_at: iso(at) });
+    check(error, "Tagesziel speichern");
+  }
+
+  async getPublishedOwn(from: number, to: number): Promise<PublishedShort[]> {
+    const { data, error } = await this.db
+      .from("videos")
+      .select("id, channel_id, title, thumbnail_url, published_at, views, channels!inner(kind)")
+      .eq("channels.kind", "own")
+      .is("removed_at", null)
+      .gte("published_at", iso(from))
+      .lte("published_at", iso(to))
+      .order("published_at");
+    check(error, "Uploads lesen");
+    return (data ?? []).map((r) => ({
+      id: r.id,
+      channelId: r.channel_id,
+      title: r.title ?? "",
+      thumbnailUrl: r.thumbnail_url,
+      publishedAt: Date.parse(r.published_at),
       views: Number(r.views ?? 0),
     }));
   }

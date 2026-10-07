@@ -13,6 +13,7 @@ import { channelShortStats } from "@/lib/metrics/standings";
 import { buildUploadCalendar } from "@/lib/metrics/calendar";
 import { buildCommentPulse } from "@/lib/metrics/comments";
 import { buildRivalRadar } from "@/lib/metrics/radar";
+import { buildTracker } from "@/lib/metrics/production";
 import type { CommentGainRow } from "@/lib/db/store";
 import { analyzeCatalog } from "@/lib/metrics/catalog";
 import { analyzeShortLength } from "@/lib/metrics/short-length";
@@ -29,6 +30,7 @@ import type {
   ChannelSummary,
   CommentItem,
   DashboardData,
+  ProductionItem,
   DataSourceKind,
   RankedShort,
   StandingsEntry,
@@ -81,6 +83,8 @@ export interface RawDashboardInput {
   dailyViews?: Map<string, Map<string, number>>;
   /** Aufrufe je Short in 28 Tagen (YouTube Analytics, nur eigene Kanäle). */
   views28d?: Map<string, number>;
+  /** Produktions-Einträge + Tagesziele (fehlt = kein Tracker). Uploads kommen aus `shorts`. */
+  production?: { items: ProductionItem[]; targets: Record<string, number> } | null;
   /** Gespeicherte Kommentare + Kommentar-Zuwachs (fehlt = kein Kommentar-Puls). */
   comments?: { recent: CommentItem[]; top: CommentItem[]; gains: CommentGainRow[] } | null;
 }
@@ -188,6 +192,22 @@ export function buildDashboard(input: RawDashboardInput): DashboardData {
     ...buildAnalysis(input),
     comments: input.comments ? buildCommentPulse(input.comments, input.shorts) : null,
     rivalRadar: input.rivals && input.hasHistory ? buildRivalRadar(input.rivalShorts ?? [], input.now, historyHours) : null,
+    production: input.production
+      ? buildTracker({
+          channelIds: input.channels.map((c) => c.channel.id),
+          items: input.production.items,
+          published: input.shorts.map((s) => ({
+            id: s.id,
+            channelId: s.channelId,
+            title: s.title,
+            thumbnailUrl: s.thumbnailUrl,
+            publishedAt: s.publishedAt,
+            views: s.views,
+          })),
+          targets: input.production.targets,
+          now: input.now,
+        }).summary
+      : null,
   };
 }
 

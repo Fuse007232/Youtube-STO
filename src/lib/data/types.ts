@@ -172,6 +172,86 @@ export interface StandingsEntry {
   bestShort24h: Pick<RankedShort, "id" | "title" | "views24h" | "thumbnailUrl"> | null;
 }
 
+// ───────────── Produktion („Boxengasse“, Phase 9) ─────────────
+
+export type ProductionStatus = "idea" | "produced" | "scheduled" | "published";
+
+/** Ein geplanter / vorproduzierter Short (day = null → Ideen-Parkplatz). */
+export interface ProductionItem {
+  id: number;
+  channelId: string;
+  /** Geplanter Veröffentlichungstag (Berliner Datum, YYYY-MM-DD) oder null. */
+  day: string | null;
+  title: string;
+  status: ProductionStatus;
+  note: string;
+  link: string | null;
+  createdAt: number;
+}
+
+/** Ein tatsächlich veröffentlichter eigener Short (aus der Datenbank). */
+export interface PublishedShort {
+  id: string;
+  channelId: string;
+  title: string;
+  thumbnailUrl: string | null;
+  publishedAt: number;
+  views: number;
+}
+
+/** Zustand eines Platzes im Tracker. */
+export type SlotState = "open" | "missed" | "idea" | "produced" | "scheduled" | "online";
+
+export interface TrackerSlot {
+  key: string;
+  state: SlotState;
+  item: ProductionItem | null;
+  short: PublishedShort | null;
+}
+
+export interface TrackerCell {
+  channelId: string;
+  target: number;
+  slots: TrackerSlot[];
+  online: number;
+  /** Produziert oder eingeplant, aber noch nicht online. */
+  ready: number;
+  complete: boolean;
+}
+
+export interface TrackerDay {
+  day: string;
+  /** 0 = Montag … 6 = Sonntag */
+  weekday: number;
+  isToday: boolean;
+  isPast: boolean;
+  cells: TrackerCell[];
+}
+
+/** Kurzfassung je Kanal (Reiter-Zähler, Rennbericht, Erinnerung). */
+export interface ChannelProductionSummary {
+  channelId: string;
+  target: number;
+  todayOnline: number;
+  todayReady: number;
+  /** Heute noch komplett offen (weder online noch produziert/eingeplant). */
+  todayOpen: number;
+  /** So viele Tage ab heute sind abgedeckt (online oder fertig produziert/eingeplant). */
+  bufferDays: number;
+  /** Fertige Shorts (produziert/eingeplant) ab heute, noch nicht online. */
+  readyCount: number;
+  weekOnline: number;
+  weekTarget: number;
+}
+
+export interface TrackerView {
+  today: string;
+  days: TrackerDay[];
+  backlog: ProductionItem[];
+  targets: Record<string, number>;
+  summary: ChannelProductionSummary[];
+}
+
 // ───────────── Analyse-Seite (Phase 7) ─────────────
 
 /** Leistung nach Short-Länge („Renndistanz“). */
@@ -354,6 +434,8 @@ export interface DashboardData {
   comments: CommentPulse | null;
   /** Konkurrenz-Radar. null = keine Konkurrenz-Daten (keine Konkurrenten bzw. Quelle ohne Verlauf). */
   rivalRadar: RadarItem[] | null;
+  /** Produktion je eigenem Kanal (Phase 9). null = Quelle ohne Tracker. */
+  production: ChannelProductionSummary[] | null;
 }
 
 /** Jede Datenquelle muss diese eine Funktion anbieten. */

@@ -6,6 +6,8 @@ import { HOUR_MS } from "@/lib/metrics/deltas";
 import { activityFromPoints, buildTimingSamples, type FirstDayRow } from "@/lib/metrics/upload-timing";
 import { channelRank, shortTiming } from "@/lib/metrics/short-detail";
 import { mockCommentData, mockComments } from "./mock-comments";
+import { MemoryTrackerStore } from "@/lib/tracker/memory-store";
+import { addDays, berlinDay } from "@/lib/metrics/calendar";
 import { roundSubscribersLikeYouTube } from "@/lib/metrics/rounding";
 import { createRandom, gaussian, hashString } from "./random";
 import { mockAlerts, mockAnalytics } from "./mock-analytics";
@@ -257,6 +259,37 @@ const lastSnapshotFor = (now: number) => {
   return Math.floor(now / stepMs) * stepMs;
 };
 
+/**
+ * Produktions-Speicher für die Beispieldaten: lebt so lange wie der Server,
+ * startet mit ein paar vorproduzierten Shorts und Ideen.
+ */
+let mockTracker: MemoryTrackerStore | null = null;
+export function getMockTracker(now = Date.now()): MemoryTrackerStore {
+  if (mockTracker) return mockTracker;
+  const store = new MemoryTrackerStore((from, to) => {
+    const cache = ensureCache(lastSnapshotFor(Date.now()));
+    return cache.sims
+      .flatMap((s) => s.shorts)
+      .filter((s) => s.publishedAt >= from && s.publishedAt <= to)
+      .map((s) => ({ id: s.id, channelId: s.channelId, title: s.title, thumbnailUrl: s.thumbnailUrl, publishedAt: s.publishedAt, views: s.views }));
+  });
+  const [brv, gra] = CHANNELS;
+  const today = berlinDay(now);
+  const seed: [string, string | null, "idea" | "produced" | "scheduled", string][] = [
+    [brv.id, today, "scheduled", "Mathe-Test aber in 4K – Teil 3"],
+    [brv.id, addDays(today, 1), "produced", "Kühlschrank-Kollaps"],
+    [brv.id, addDays(today, 2), "idea", "Sigma Katze Finale"],
+    [gra.id, addDays(today, 1), "produced", "Oma testet Energy-Drink"],
+    [gra.id, null, "idea", "Oma reagiert auf Gen-Z-Slang #2"],
+    [brv.id, null, "idea", "Bus-Fahrer ohne Kontext #31"],
+  ];
+  for (const [channelId, day, status, title] of seed) {
+    void store.createProductionItem({ channelId, day, status, title }, now);
+  }
+  mockTracker = store;
+  return store;
+}
+
 export class MockDataSource implements DataSource {
   readonly kind = "mock" as const;
 
@@ -281,6 +314,10 @@ export class MockDataSource implements DataSource {
       rivals: cache.rivals.map((s) => s.raw),
       rivalShorts: cache.rivals.flatMap((s) => s.shorts),
       comments: mockCommentData(shorts, lastSnapshotAt),
+      production: {
+        items: [...getMockTracker(now).items.values()],
+        targets: getMockTracker(now).targets,
+      },
       timing: {
         firstDay: [...cache.sims, ...cache.rivals].flatMap((s) => s.firstDay),
         activity: new Map(cache.sims.map((s) => [s.raw.channel.id, activityFromPoints(s.raw.points)])),

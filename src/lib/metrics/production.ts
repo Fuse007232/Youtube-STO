@@ -69,16 +69,20 @@ function cellFor(input: {
     if (match) used.add(match.id);
     slots.push({ key: `yt-${short.id}`, state: "online", item: match, short });
   }
-  // 2) Übrige Einträge mit ihrem Status (von Hand „online“ markiert zählt als online)
+  // 2) Übrige Einträge mit ihrem Status (von Hand „online“ markiert zählt als online).
+  //    Schlüssel nach Position: ein Platz bleibt derselbe, egal ob offen, produziert
+  //    oder eingeplant (kein Flackern, wenn ein Eintrag gespeichert wird).
+  const slotKey = (n: number) => `slot-${input.day}-${input.channelId}-${n}`;
+  let n = 0;
   for (const item of items) {
     if (used.has(item.id)) continue;
     const state: SlotState = item.status === "published" ? "online" : item.status;
-    slots.push({ key: `item-${item.id}`, state, item, short: null });
+    slots.push({ key: slotKey(n++), state, item, short: null });
   }
   // 3) Auf das Tagesziel auffüllen: offen bzw. (in der Vergangenheit) verpasst
   const isPast = input.day < input.today;
   for (let i = slots.length; i < input.target; i++) {
-    slots.push({ key: `open-${input.day}-${input.channelId}-${i}`, state: isPast ? "missed" : "open", item: null, short: null });
+    slots.push({ key: slotKey(n++), state: isPast ? "missed" : "open", item: null, short: null });
   }
 
   const online = slots.filter((s) => s.state === "online").length;

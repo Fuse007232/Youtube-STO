@@ -13,6 +13,7 @@ import {
 } from "react";
 import {
   ChartIcon,
+  ClipboardIcon,
   FlagIcon,
   LogoutIcon,
   RivalsIcon,
@@ -27,6 +28,7 @@ import { DASHBOARD_PAGES, pageForPath, pageIndex } from "./pages";
 
 const ICONS: Record<DashboardPageId, typeof FlagIcon> = {
   race: FlagIcon,
+  production: ClipboardIcon,
   strategy: TargetIcon,
   analysis: ChartIcon,
   rivals: RivalsIcon,
@@ -94,7 +96,7 @@ export function DashboardShell({
                   <TopNav current={current} />
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  {current ? <RangeSwitch /> : null}
+                  {current && current !== "production" ? <RangeSwitch /> : null}
                   <div className="mx-1 hidden items-center gap-2 2xl:flex" title={initialData.channels.map((c) => c.channel.name).join(" vs. ")}>
                   <span className="flex -space-x-1.5">
                     {initialData.channels.map((c) => (
@@ -191,7 +193,7 @@ function BottomNav({ current }: { current: DashboardPageId | null }) {
       className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-bg/85 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden"
       style={{ viewTransitionName: "bottom-nav" }}
     >
-      <div className="mx-auto grid max-w-md grid-cols-4">
+      <div className="mx-auto grid max-w-lg grid-cols-5">
         {DASHBOARD_PAGES.map((p) => {
           const active = p.id === current;
           const Icon = ICONS[p.id];
@@ -201,14 +203,14 @@ function BottomNav({ current }: { current: DashboardPageId | null }) {
               href={p.href}
               transitionTypes={transitionFor(current, p.id)}
               aria-current={active ? "page" : undefined}
-              className={`relative flex flex-col items-center gap-1 py-2.5 text-[10px] font-semibold uppercase tracking-wider transition-colors active:scale-95 ${
+              className={`relative flex flex-col items-center gap-1 py-2.5 text-[9px] font-semibold uppercase tracking-wide sm:text-[10px] sm:tracking-wider transition-colors active:scale-95 ${
                 active ? "text-ink" : "text-muted"
               }`}
             >
               {active ? (
                 <motion.span
                   layoutId="bottom-nav-bar"
-                  className="absolute inset-x-6 top-0 h-0.5 rounded-full bg-live"
+                  className="absolute inset-x-4 top-0 h-0.5 rounded-full bg-live"
                   transition={{ type: "spring", stiffness: 500, damping: 40 }}
                   aria-hidden
                 />

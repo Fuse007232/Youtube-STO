@@ -1,10 +1,10 @@
 import { isAuthenticated } from "@/lib/auth/server";
-import { getTrackerStore, loadTrackerView } from "@/lib/tracker/server";
+import { getTrackerStore, loadTrackerData } from "@/lib/tracker/server";
 import { trackerError } from "@/lib/tracker/http";
 import { parseItemInput } from "@/lib/tracker/validate";
 
 /**
- * GET  /api/tracker – Produktionsplan (Zeitstrahl, Ideen-Parkplatz, Vorlauf)
+ * GET  /api/tracker – Rohdaten des Produktionsplans (Einträge, Uploads, Tagesziele)
  * POST /api/tracker – Eintrag anlegen { channelId, day|null, title?, status?, note?, link? }
  */
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ export async function GET() {
   const store = getTrackerStore();
   if (!store) return Response.json({ error: "Der Produktionsplan braucht die Datenbank." }, { status: 503 });
   try {
-    return Response.json(await loadTrackerView(store), { headers: noStore });
+    return Response.json(await loadTrackerData(store), { headers: noStore });
   } catch (e) {
     return trackerError(e);
   }

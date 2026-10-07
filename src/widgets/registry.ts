@@ -15,6 +15,9 @@ import shortLength from "./short-length";
 import catalogShare from "./catalog-share";
 import commentPulse from "./comment-pulse";
 import rivalRadar from "./rival-radar";
+import productionStatus from "./production-status";
+import productionPlan from "./production-plan";
+import ideaParking from "./idea-parking";
 
 /**
  * ZENTRALE WIDGET-LISTE – je Bereich.
@@ -25,6 +28,8 @@ import rivalRadar from "./rival-radar";
 export const PAGES: Record<DashboardPageId, WidgetDefinition[]> = {
   // „Rennen“ (/): was gerade passiert
   race: [statusBar, channelOverview, duelTower, trendChart, topShorts, teamRadio, commentPulse],
+  // „Produktion“ (/produktion): was ist gemacht, was fehlt, was ist vorproduziert
+  production: [productionStatus, productionPlan, ideaParking],
   // „Strategie“ (/strategie): wann, wie lang, wie oft hochladen
   strategy: [statusBar, uploadTiming, shortLength, catalogShare, uploadCalendar],
   // „Analyse“ (/analyse): YouTube Analytics (blendet sich aus, wenn die Quelle keine Analytics hat)

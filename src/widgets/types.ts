@@ -28,4 +28,4 @@ export function defineWidget(def: WidgetDefinition): WidgetDefinition {
 }
 
 /** Bereiche des Dashboards (Reiter oben bzw. Leiste unten am Handy). */
-export type DashboardPageId = "race" | "strategy" | "analysis" | "rivals";
+export type DashboardPageId = "race" | "production" | "strategy" | "analysis" | "rivals";

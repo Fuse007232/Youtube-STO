@@ -244,6 +244,14 @@ export interface ChannelProductionSummary {
   weekTarget: number;
 }
 
+/** Rohdaten des Trackers (API) – der Browser rechnet daraus mit `buildTracker` die Ansicht. */
+export interface TrackerData {
+  items: ProductionItem[];
+  published: PublishedShort[];
+  targets: Record<string, number>;
+  generatedAt: number;
+}
+
 export interface TrackerView {
   today: string;
   days: TrackerDay[];

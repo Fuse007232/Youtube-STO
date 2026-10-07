@@ -263,9 +263,10 @@ const lastSnapshotFor = (now: number) => {
  * Produktions-Speicher für die Beispieldaten: lebt so lange wie der Server,
  * startet mit ein paar vorproduzierten Shorts und Ideen.
  */
-let mockTracker: MemoryTrackerStore | null = null;
+/** Ein gemeinsamer Speicher für Seiten UND API-Routen (Next bündelt sie getrennt → globalThis). */
+const trackerHolder = globalThis as unknown as { __stoMockTracker?: MemoryTrackerStore };
 export function getMockTracker(now = Date.now()): MemoryTrackerStore {
-  if (mockTracker) return mockTracker;
+  if (trackerHolder.__stoMockTracker) return trackerHolder.__stoMockTracker;
   const store = new MemoryTrackerStore((from, to) => {
     const cache = ensureCache(lastSnapshotFor(Date.now()));
     return cache.sims
@@ -286,7 +287,7 @@ export function getMockTracker(now = Date.now()): MemoryTrackerStore {
   for (const [channelId, day, status, title] of seed) {
     void store.createProductionItem({ channelId, day, status, title }, now);
   }
-  mockTracker = store;
+  trackerHolder.__stoMockTracker = store;
   return store;
 }
 

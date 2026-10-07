@@ -33,6 +33,7 @@ YouTube hat keine Echtzeit-Schnittstelle. Deshalb holt ein Hintergrund-Job alle 
 | 6 | Extras (Alarm, beste Upload-Zeit, Konkurrenz) | ✅ fertig |
 | 7 | Feinschliff: Seiten Rennen/Analyse, Short-Länge, Langzeit-Anteil, Upload-Kalender, Short-Steckbrief, Kommentar-Puls, Konkurrenz-Radar, Rennbericht, Wächter | ✅ fertig (01.10.2026) |
 | 8 | Schönheit: 4 Bereiche + Handy-Leiste, Seitenübergänge, globaler Zeitraum, Bilder + Vorschau, Hover-Effekte, Skelette, App-Symbol | ✅ fertig (02.10.2026) |
+| 9 | Produktion: Tages-Tracker (gemacht / vorproduziert / eingeplant / online), Ideen-Parkplatz, Vorlauf, Erinnerungen | 🔄 läuft |
 
 ---
 
@@ -461,6 +462,39 @@ Erste echte Auswertung: **BRV – „Teste mehr um 14–16 Uhr“, +49 % gegenü
 - Zeitraum „28 Tage“ zeigt sofort echte Analytics-Zahlen (Kanäle, Duell, Rennverlauf pro Tag, Top Shorts).
 - Konkurrenz-Radar nachgeschärft: Ausbruch nur bei plötzlichem Zuwachs (ab 3 Tagen Verlauf), Vergleich mit allen älteren Shorts des Kanals.
 - App-Symbol: dunkle Kachel, kursives „LT“, rotes Live-Licht, Ziellinien-Karo.
+
+---
+
+### Phase 9: Produktion („Boxengasse“) – Wunsch vom 07.10.2026
+
+**Ziel:** Ein neuer Reiter **Produktion** (zwischen Rennen und Strategie): Für jeden Tag und jeden Kanal sieht man sofort, welche Shorts schon gemacht sind und welche fehlen – und kann Shorts für die nächsten Tage **vorproduzieren und abhaken**.
+
+**Ausgangslage:** BRV lädt ca. 1 Short/Tag hoch (24 in 28 Tagen), GRA ca. alle 3 Tage (10 in 28 Tagen). Tagesziel pro Kanal ist einstellbar (Start: je 1).
+
+**So funktioniert der Tracker:**
+- Zeitstrahl von **vorgestern bis +7 Tage**, je Kanal eine Zeile („Boxenplan“). Jeder Tag hat so viele Plätze wie das Tagesziel (+ alles, was zusätzlich geplant oder online ist).
+- Jeder Platz hat einen Status – **Antippen schaltet weiter**:
+  ○ offen → 🎬 produziert (fertig geschnitten) → 📅 eingeplant (bei YouTube geplant) → wieder offen.
+  Optional: Titel, Notiz, Link (z. B. Skript/Drive) über „…“.
+- **✅ Online kommt automatisch:** Das Dashboard kennt deine Uploads. Erscheint an einem Tag ein Short, wird der Platz grün abgehakt (mit Vorschaubild und Aufrufen) – auch ohne dass du ihn vorher eingetragen hast.
+- Vergangene Tage mit offenen Plätzen werden rot als „verpasst“ markiert, erfüllte Tage bekommen eine Zielflagge.
+
+**Bonus-Ideen (werden mitgebaut):**
+1. **Vorlauf-Anzeige** je Kanal: „Vorlauf 3 Tage“ = so viele Tage im Voraus ist produziert/eingeplant (rot < 1 Tag, gelb 1–2, grün ≥ 3) + Wochenziel-Fortschritt.
+2. **Ideen-Parkplatz:** Ideen ohne Datum sammeln, später mit einem Klick auf einen Tag legen.
+3. **„Als Idee merken“** direkt aus dem Konkurrenz-Radar (mit Link zum Vorbild-Short).
+4. **Upload-Tipp** je Kanal aus der Boxenstrategie direkt im Tracker („Tipp: 14–16 Uhr“).
+5. **Rennbericht** bekommt einen Abschnitt „Produktion“ (heute offen, Vorlauf) + **Erinnerung per Mail um 18 Uhr**, falls für heute noch nichts online oder eingeplant ist (je Kanal höchstens 1× am Tag).
+6. **Zähler am Reiter:** Ein kleiner roter Punkt mit der Zahl der heute noch offenen Shorts.
+
+**Technik:**
+- Migration 0012: Tabellen `production_items` (Kanal, Tag oder leer = Ideen-Parkplatz, Titel, Status, Notiz, Link) und `production_targets` (Tagesziel je Kanal).
+- Reine Funktion `src/lib/metrics/production.ts` (Plätze je Tag, Abgleich mit echten Uploads, Vorlauf, Wochenziel) mit Tests.
+- API `/api/tracker` (lesen/anlegen), `/api/tracker/[id]` (ändern/löschen), `/api/tracker/targets` (Tagesziel) – alle mit Login-Prüfung, Supabase nur auf dem Server.
+- `DashboardData.production` (Kurzfassung für Reiter-Zähler, Rennbericht, Erinnerung). Beispieldaten bekommen einen Speicher im Arbeitsspeicher.
+- Widgets `production-plan` (volle Breite) und `idea-parking` im neuen Bereich `/produktion`.
+
+**Wo ich dich brauche:** nirgends.
 
 ---
 
